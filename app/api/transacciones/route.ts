@@ -198,13 +198,22 @@ export async function POST(request: NextRequest) {
       // Sincronizar con Google Calendar si es PLANIFICADA y hay token
       if (transaccion.estado === 'PLANIFICADA' && (session as any).accessToken) {
         try {
-          await createGoogleCalendarEvent((session as any).accessToken, {
+          const googleEventId = await createGoogleCalendarEvent((session as any).accessToken, {
             descripcion: transaccion.descripcion,
             monto: Number(transaccion.monto),
             moneda: transaccion.moneda,
             fechaPlanificada: transaccion.fechaPlanificada!,
             tipo: transaccion.tipo as 'INGRESO' | 'EGRESO'
           });
+
+          if (googleEventId) {
+            await prisma.transaccion.update({
+              where: { id: transaccion.id },
+              data: { googleEventId }
+            });
+            // Actualizamos el objeto para la respuesta
+            transaccion.googleEventId = googleEventId;
+          }
         } catch (calErr) {
           console.error('Error no crítico al sincronizar con Calendar:', calErr);
           // No bloqueamos la creación de la transacción si falla el calendario

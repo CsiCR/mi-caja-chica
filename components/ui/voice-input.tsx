@@ -16,49 +16,64 @@ export function VoiceInput({ onDataDetected }: VoiceInputProps) {
     const [recognition, setRecognition] = useState<any>(null);
 
     useEffect(() => {
-        // Verificar soporte del navegador (común en Chrome/Android)
         if (typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
             setBrowserSupportsSpeech(true);
+        }
+    }, []);
+
+    const startListening = () => {
+        if (typeof window === 'undefined') return;
+
+        try {
             const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                toast.error('Tu navegador no soporta dictado por voz.');
+                return;
+            }
+
             const recog = new SpeechRecognition();
             recog.continuous = false;
-            recog.lang = 'es-AR'; // Español Argentina
+            recog.lang = 'es-AR';
             recog.interimResults = false;
 
-            recog.onstart = () => setIsListening(true);
+            recog.onstart = () => {
+                setIsListening(true);
+            };
 
-            recog.onend = () => setIsListening(false);
+            recog.onend = () => {
+                setIsListening(false);
+            };
 
             recog.onerror = (event: any) => {
                 console.error('Error de voz:', event.error);
                 setIsListening(false);
-                toast.error('Error al escuchar. Intenta de nuevo.');
+                if (event.error === 'not-allowed') {
+                    toast.error('Permiso de micrófono denegado.');
+                } else {
+                    toast.error('Error al escuchar. Intenta de nuevo.');
+                }
             };
 
             recog.onresult = (event: any) => {
                 const transcript = event.results[0][0].transcript;
                 console.log('Escuchado:', transcript);
                 toast.success(`" ${transcript} "`);
-
-                // Enviar texto crudo para que el padre decida cómo procesarlo (IA o Local)
                 onDataDetected({ description: transcript });
             };
 
+            recog.start();
             setRecognition(recog);
+        } catch (e) {
+            console.error('Error iniciando reconocimiento:', e);
+            toast.error('No se pudo iniciar el micrófono.');
         }
-    }, [onDataDetected]);
+    };
 
     const toggleListening = () => {
-        if (!recognition) return;
-
-        if (isListening) {
+        if (isListening && recognition) {
             recognition.stop();
         } else {
-            try {
-                recognition.start();
-            } catch (e) {
-                console.error(e);
-            }
+            startListening();
         }
     };
 

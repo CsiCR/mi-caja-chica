@@ -151,6 +151,7 @@ model Transaccion {
   cuentaBancaria    CuentaBancaria    @relation(fields: [cuentaBancariaId], references: [id], onDelete: Cascade)
   entidad           Entidad           @relation(fields: [entidadId], references: [id], onDelete: Cascade)
   user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  googleEventId     String?
 
   @@map("transacciones")
 }

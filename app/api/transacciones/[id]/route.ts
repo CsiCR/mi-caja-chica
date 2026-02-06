@@ -5,6 +5,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
+import { updateGoogleCalendarEvent, deleteGoogleCalendarEvent, createGoogleCalendarEvent } from '@/lib/calendar';
 
 const TransaccionUpdateSchema = z.object({
   descripcion: z.string().min(1, 'La descripción es requerida').max(255, 'La descripción no puede exceder 255 caracteres'),
@@ -23,7 +24,7 @@ const TransaccionUpdateSchema = z.object({
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
@@ -60,6 +61,44 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       },
     });
 
+    // Sincronizar con Google Calendar
+    if ((session as any).accessToken) {
+      if (transaccion.estado === 'PLANIFICADA') {
+        if (transaccion.googleEventId) {
+          // Actualizar evento existente
+          await updateGoogleCalendarEvent((session as any).accessToken, transaccion.googleEventId, {
+            descripcion: transaccion.descripcion,
+            monto: Number(transaccion.monto),
+            moneda: transaccion.moneda,
+            fechaPlanificada: transaccion.fechaPlanificada!,
+            tipo: transaccion.tipo as 'INGRESO' | 'EGRESO'
+          });
+        } else {
+          // Crear evento si ahora es planificada pero no tenía evento
+          const googleEventId = await createGoogleCalendarEvent((session as any).accessToken, {
+            descripcion: transaccion.descripcion,
+            monto: Number(transaccion.monto),
+            moneda: transaccion.moneda,
+            fechaPlanificada: transaccion.fechaPlanificada!,
+            tipo: transaccion.tipo as 'INGRESO' | 'EGRESO'
+          });
+          if (googleEventId) {
+            await prisma.transaccion.update({
+              where: { id: transaccion.id },
+              data: { googleEventId }
+            });
+          }
+        }
+      } else if (existingTransaccion.googleEventId) {
+        // Si dejó de ser planificada, borrar el evento
+        await deleteGoogleCalendarEvent((session as any).accessToken, existingTransaccion.googleEventId);
+        await prisma.transaccion.update({
+          where: { id: transaccion.id },
+          data: { googleEventId: null }
+        });
+      }
+    }
+
     return NextResponse.json(transaccion);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -73,7 +112,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
@@ -84,6 +123,11 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     if (!existingTransaccion) {
       return NextResponse.json({ error: 'Transacción no encontrada' }, { status: 404 });
+    }
+
+    // Borrar de Google Calendar si existe
+    if (existingTransaccion.googleEventId && (session as any).accessToken) {
+      await deleteGoogleCalendarEvent((session as any).accessToken, existingTransaccion.googleEventId);
     }
 
     await prisma.transaccion.delete({
