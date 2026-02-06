@@ -32,21 +32,12 @@ export function DashboardLayoutServer({ children, user }: DashboardLayoutServerP
         <SheetContent side="left" className="w-72 p-0 max-w-[280px]">
           <div className="flex h-full flex-col">
             {/* Logo con botón de cerrar */}
-            <div className="flex h-16 shrink-0 items-center border-b border-gray-200 px-6">
-              <div className="flex items-center gap-2">
-                <Image
-                  src="/logo-reduced.png"
-                  alt="Logo"
-                  width={32}
-                  height={32}
-                  className="rounded-lg"
-                />
-                <span className="text-xl font-bold text-gray-900">Mi Caja Chica</span>
-              </div>
+            {/* Botón de cerrar para móvil */}
+            <div className="absolute right-4 top-4 z-50 lg:hidden">
               <Button
                 variant="ghost"
                 size="sm"
-                className="ml-auto hover:bg-gray-100"
+                className="hover:bg-gray-100 h-8 w-8 p-0"
                 onClick={() => setSidebarOpen(false)}
               >
                 <span className="text-2xl">×</span>
@@ -96,11 +87,11 @@ export function DashboardLayoutServer({ children, user }: DashboardLayoutServerP
           {/* Mobile App Title */}
           <div className="lg:hidden flex items-center gap-2">
             <Image
-              src="/logo-reduced.png"
+              src="/app-icon.png"
               alt="Logo"
-              width={24}
-              height={24}
-              className="rounded-md"
+              width={28}
+              height={28}
+              className="rounded-md shadow-sm border border-green-100"
             />
             <span className="text-lg font-bold text-gray-900">Mi Caja Chica</span>
           </div>

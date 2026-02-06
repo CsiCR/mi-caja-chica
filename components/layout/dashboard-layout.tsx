@@ -99,16 +99,15 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const SidebarContent = ({ isMobile = false }) => (
     <div className="flex h-full flex-col">
       {/* Logo */}
-      <div className="flex h-16 shrink-0 items-center border-b border-gray-200 px-6">
+      <div className="flex h-24 shrink-0 items-center border-b border-gray-200 px-6 py-4">
         <Link href="/dashboard" className="flex items-center gap-2">
           <Image
-            src="/logo-reduced.png"
+            src="/logo-full.png"
             alt="Logo"
-            width={32}
-            height={32}
-            className="rounded-lg shadow-sm"
+            width={150}
+            height={60}
+            className="h-auto w-auto max-h-16"
           />
-          <span className="text-xl font-bold text-gray-900">Mi Caja Chica</span>
         </Link>
         {/* Cerrar en móvil */}
         {isMobile && (
@@ -231,13 +230,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           {/* Mobile App Title */}
           <div className="lg:hidden flex items-center gap-2">
             <Image
-              src="/logo-reduced.png"
+              src="/app-icon.png"
               alt="Logo"
-              width={24}
-              height={24}
-              className="rounded-md"
+              width={28}
+              height={28}
+              className="rounded-md shadow-sm border border-green-100"
             />
-            <span className="text-lg font-bold text-gray-900">Mi Caja Chica</span>
+            <span className="text-lg font-bold text-gray-900 tracking-tight">Mi Caja Chica</span>
           </div>
 
           {/* Spacer */}
