@@ -200,339 +200,214 @@ export function ReporteSaldos() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Filtros */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5" />
-            Reporte de Saldos por Entidad y Cuenta
-          </CardTitle>
-          <CardDescription>
-            Visualiza los saldos actuales de cada entidad distribuidos por cuenta bancaria
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div>
-                <Label htmlFor="entidad-filter">Filtrar por Entidad</Label>
-                <Select value={entidadFilter || 'all'} onValueChange={(value) => setEntidadFilter(value === 'all' ? '' : value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todas las entidades" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas las entidades</SelectItem>
-                    {entidades.map((entidad) => (
-                      <SelectItem key={entidad.id} value={entidad.id}>
-                        {entidad.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+    <div className="space-y-4 -mt-4">
+      {/* Barra de Herramientas y Filtros Compacta */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-2 p-2 bg-slate-50 border rounded-lg sticky top-0 z-30 shadow-sm">
+        <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0 no-scrollbar">
+          <Select value={entidadFilter || 'all'} onValueChange={(value) => setEntidadFilter(value === 'all' ? '' : value)}>
+            <SelectTrigger className="h-8 w-[140px] text-xs">
+              <SelectValue placeholder="Entidades" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas</SelectItem>
+              {entidades.map((entidad) => (
+                <SelectItem key={entidad.id} value={entidad.id}>{entidad.nombre}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-              <div>
-                <Label htmlFor="cuenta-filter">Filtrar por Cuenta</Label>
-                <Select value={cuentaFilter || 'all'} onValueChange={(value) => setCuentaFilter(value === 'all' ? '' : value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todas las cuentas" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas las cuentas</SelectItem>
-                    {cuentas.map((cuenta) => (
-                      <SelectItem key={cuenta.id} value={cuenta.id}>
-                        {cuenta.nombre} - {cuenta.banco}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+          <Select value={cuentaFilter || 'all'} onValueChange={(value) => setCuentaFilter(value === 'all' ? '' : value)}>
+            <SelectTrigger className="h-8 w-[140px] text-xs">
+              <SelectValue placeholder="Cuentas" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas</SelectItem>
+              {cuentas.map((cuenta) => (
+                <SelectItem key={cuenta.id} value={cuenta.id}>{cuenta.nombre}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-              <div>
-                <Label htmlFor="moneda-filter">Filtrar por Moneda</Label>
-                <Select value={monedaFilter || 'all'} onValueChange={(value) => setMonedaFilter(value === 'all' ? '' : value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todas las monedas" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas las monedas</SelectItem>
-                    <SelectItem value="ARS">Solo ARS</SelectItem>
-                    <SelectItem value="USD">Solo USD</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="planificadas-switch">Incluir Planificadas</Label>
-                <div className="flex items-center space-x-2 mt-2">
-                  <Switch
-                    id="planificadas-switch"
-                    checked={incluirPlanificadas}
-                    onCheckedChange={setIncluirPlanificadas}
-                  />
-                  <Label htmlFor="planificadas-switch" className="text-sm text-gray-600">
-                    {incluirPlanificadas ? 'Incluidas' : 'Solo reales'}
-                  </Label>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-4 items-end">
-              <div className="flex-1">
-                <Label>Rango de Fechas</Label>
-                <DatePickerWithRange
-                  className="w-full"
-                  date={dateRange}
-                  onDateChange={setDateRange}
-                />
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={clearFilters}>
-                  Limpiar Filtros
-                </Button>
-                <Button onClick={fetchSaldos} disabled={loading}>
-                  <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                  Actualizar
-                </Button>
-              </div>
-            </div>
+          <div className="flex items-center space-x-2 bg-white px-2 py-1 rounded border h-8">
+            <Switch
+              id="plan-compact"
+              checked={incluirPlanificadas}
+              onCheckedChange={setIncluirPlanificadas}
+              className="scale-75"
+            />
+            <Label htmlFor="plan-compact" className="text-[10px] whitespace-nowrap">Planificadas</Label>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Resumen General */}
-      {data && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Total en Pesos</p>
-                  <p className={`text-2xl font-bold ${getSaldoColor(data.totalGeneral.ARS)}`}>
-                    {formatMonto(data.totalGeneral.ARS, 'ARS')}
-                  </p>
-                </div>
-                <DollarSign className="h-8 w-8 text-green-600" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Total en Dólares</p>
-                  <p className={`text-2xl font-bold ${getSaldoColor(data.totalGeneral.USD)}`}>
-                    {formatMonto(data.totalGeneral.USD, 'USD')}
-                  </p>
-                </div>
-                <DollarSign className="h-8 w-8 text-blue-600" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Entidades Activas</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {data.entidades.length}
-                  </p>
-                </div>
-                <BarChart3 className="h-8 w-8 text-purple-600" />
-              </div>
-            </CardContent>
-          </Card>
         </div>
-      )}
 
-      {/* Tabla Cruzada de Saldos */}
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+          {data && (
+            <div className="hidden lg:flex items-center gap-4 mr-4 text-xs font-medium border-r pr-4">
+              <div className="flex flex-col items-end leading-none">
+                <span className="text-[9px] text-gray-400 uppercase tracking-tighter">Total Pesos</span>
+                <span className={getSaldoColor(data.totalGeneral.ARS)}>{formatMonto(data.totalGeneral.ARS, 'ARS')}</span>
+              </div>
+              <div className="flex flex-col items-end leading-none">
+                <span className="text-[9px] text-gray-400 uppercase tracking-tighter">Total Dólares</span>
+                <span className={getSaldoColor(data.totalGeneral.USD)}>{formatMonto(data.totalGeneral.USD, 'USD')}</span>
+              </div>
+            </div>
+          )}
+          <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 text-xs font-normal">Limpiar</Button>
+          <Button size="sm" onClick={fetchSaldos} disabled={loading} className="h-8 text-xs">
+            <RefreshCw className={`h-3 w-3 mr-1 ${loading ? 'animate-spin' : ''}`} />
+            Actualizar
+          </Button>
+        </div>
+      </div>
+
       {loading ? (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-            <p className="mt-2 text-gray-500">Generando reporte...</p>
-          </CardContent>
-        </Card>
+        <div className="p-12 text-center text-gray-500">
+          <RefreshCw className="h-8 w-8 animate-spin mx-auto text-primary opacity-20 mb-2" />
+          <p className="text-sm">Actualizando...</p>
+        </div>
       ) : data ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Tabla Cruzada de Saldos</CardTitle>
-            <CardDescription>
-              Saldos por entidad distribuidos por cuenta bancaria
-              {dateRange?.from && dateRange?.to && (
-                <span className="block mt-1 text-xs">
-                  Período: {format(dateRange.from, 'dd/MM/yyyy', { locale: es })} - {format(dateRange.to, 'dd/MM/yyyy', { locale: es })}
-                </span>
-              )}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="font-bold">Entidad</TableHead>
-                    {data.cuentas.map((cuenta) => (
-                      <TableHead key={cuenta.id} className="text-center min-w-[120px]">
-                        <div className="flex flex-col">
-                          <span className="font-medium">{cuenta.nombre}</span>
-                          <span className="text-xs text-gray-500">{cuenta.banco}</span>
-                          <Badge variant="outline" className="mt-1 text-xs">
-                            {cuenta.moneda}
-                          </Badge>
-                        </div>
-                      </TableHead>
-                    ))}
-                    <TableHead className="text-center font-bold bg-gray-50">Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.entidades.map((entidad) => (
-                    <TableRow key={entidad.id}>
-                      <TableCell className="font-medium">
-                        <div className="flex flex-col">
-                          <span>{entidad.nombre}</span>
-                          <span className="text-xs text-gray-500 capitalize">
-                            {entidad.tipo.toLowerCase().replace('_', ' ')}
-                          </span>
-                        </div>
-                      </TableCell>
-                      {data.cuentas.map((cuenta) => {
-                        const saldo = data.saldosMatrix[entidad.id]?.[cuenta.id];
-                        const monedaCuenta = cuenta.moneda as 'ARS' | 'USD';
-                        const montoSaldo = saldo?.[monedaCuenta] || 0;
-
-                        return (
-                          <TableCell
-                            key={cuenta.id}
-                            className="text-center cursor-pointer hover:bg-slate-50 transition-colors"
-                            style={getHeatmapStyle(montoSaldo, monedaCuenta)}
-                            onClick={() => fetchDetail(entidad.id, cuenta.id, entidad.nombre, cuenta.nombre)}
-                          >
-                            <span className={`font-mono text-sm ${getSaldoColor(montoSaldo)}`}>
-                              {montoSaldo !== 0 ? formatMonto(montoSaldo, monedaCuenta) : '-'}
-                            </span>
-                          </TableCell>
-                        );
-                      })}
-                      <TableCell className="text-center font-bold bg-gray-50">
-                        <div className="flex flex-col gap-1">
-                          {data.totalesPorEntidad[entidad.id]?.ARS !== 0 && (
-                            <span className={`font-mono text-sm ${getSaldoColor(data.totalesPorEntidad[entidad.id]?.ARS || 0)}`}>
-                              {formatMonto(data.totalesPorEntidad[entidad.id]?.ARS || 0, 'ARS')}
-                            </span>
-                          )}
-                          {data.totalesPorEntidad[entidad.id]?.USD !== 0 && (
-                            <span className={`font-mono text-sm ${getSaldoColor(data.totalesPorEntidad[entidad.id]?.USD || 0)}`}>
-                              {formatMonto(data.totalesPorEntidad[entidad.id]?.USD || 0, 'USD')}
-                            </span>
-                          )}
-                          {data.totalesPorEntidad[entidad.id]?.ARS === 0 && data.totalesPorEntidad[entidad.id]?.USD === 0 && (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
+        <div className="relative border rounded-lg bg-white overflow-hidden shadow-sm">
+          <div className="overflow-auto max-h-[calc(100vh-160px)] no-scrollbar">
+            <Table className="border-separate border-spacing-0 text-[11px] sm:text-xs">
+              <TableHeader className="sticky top-0 z-20 bg-white shadow-sm">
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="sticky left-0 z-30 bg-white font-bold border-r border-b min-w-[100px] sm:min-w-[120px] shadow-[1px_0_3px_rgba(0,0,0,0.1)] py-2">Entidad</TableHead>
+                  {data.cuentas.map((cuenta) => (
+                    <TableHead key={cuenta.id} className="text-center min-w-[100px] sm:min-w-[110px] p-2 border-b">
+                      <div className="flex flex-col leading-tight">
+                        <span className="font-semibold truncate max-w-[80px] sm:max-w-[100px] mx-auto">{cuenta.nombre}</span>
+                        <span className="text-[9px] text-gray-400 uppercase">{cuenta.moneda}</span>
+                      </div>
+                    </TableHead>
                   ))}
-
-                  {/* Fila de totales */}
-                  <TableRow className="bg-gray-50 font-bold">
-                    <TableCell className="font-bold">TOTALES</TableCell>
+                  <TableHead className="text-center font-bold bg-slate-50 sticky right-0 z-20 border-l border-b min-w-[90px] sm:min-w-[100px] shadow-[-1px_0_3px_rgba(0,0,0,0.1)]">Total</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.entidades.map((entidad) => (
+                  <TableRow key={entidad.id} className="group">
+                    <TableCell className="sticky left-0 z-10 bg-white font-medium border-r border-b py-2 group-hover:bg-slate-50 shadow-[1px_0_3px_rgba(0,0,0,0.1)]">
+                      <div className="flex flex-col leading-tight">
+                        <span className="truncate max-w-[90px] sm:max-w-[110px]">{entidad.nombre}</span>
+                        <span className="text-[9px] text-gray-400 capitalize">{entidad.tipo.toLowerCase().replace('_', ' ')}</span>
+                      </div>
+                    </TableCell>
                     {data.cuentas.map((cuenta) => {
+                      const saldo = data.saldosMatrix[entidad.id]?.[cuenta.id];
                       const monedaCuenta = cuenta.moneda as 'ARS' | 'USD';
-                      const totalCuenta = data.totalesPorCuenta[cuenta.id]?.[monedaCuenta] || 0;
+                      const montoSaldo = saldo?.[monedaCuenta] || 0;
 
                       return (
-                        <TableCell key={cuenta.id} className="text-center">
-                          <span className={`font-mono text-sm ${getSaldoColor(totalCuenta)}`}>
-                            {totalCuenta !== 0 ? formatMonto(totalCuenta, monedaCuenta) : '-'}
+                        <TableCell
+                          key={cuenta.id}
+                          className="text-center p-2 border-b cursor-pointer hover:bg-slate-100 transition-colors"
+                          style={getHeatmapStyle(montoSaldo, monedaCuenta)}
+                          onClick={() => fetchDetail(entidad.id, cuenta.id, entidad.nombre, cuenta.nombre)}
+                        >
+                          <span className={`${getSaldoColor(montoSaldo)} font-mono tabular-nums`}>
+                            {montoSaldo !== 0 ? formatMonto(montoSaldo, monedaCuenta) : '-'}
                           </span>
                         </TableCell>
                       );
                     })}
-                    <TableCell className="text-center font-bold bg-gray-100">
-                      <div className="flex flex-col gap-1">
-                        <span className={`font-mono text-sm ${getSaldoColor(data.totalGeneral.ARS)}`}>
-                          {formatMonto(data.totalGeneral.ARS, 'ARS')}
-                        </span>
-                        <span className={`font-mono text-sm ${getSaldoColor(data.totalGeneral.USD)}`}>
-                          {formatMonto(data.totalGeneral.USD, 'USD')}
-                        </span>
+                    <TableCell className="text-center font-bold bg-slate-50 sticky right-0 z-10 border-l border-b p-2 shadow-[-1px_0_3px_rgba(0,0,0,0.1)]">
+                      <div className="flex flex-col gap-0.5 leading-none">
+                        {data.totalesPorEntidad[entidad.id]?.ARS !== 0 && (
+                          <span className={`font-mono tabular-nums text-[10px] ${getSaldoColor(data.totalesPorEntidad[entidad.id]?.ARS || 0)}`}>
+                            {formatMonto(data.totalesPorEntidad[entidad.id]?.ARS || 0, 'ARS')}
+                          </span>
+                        )}
+                        {data.totalesPorEntidad[entidad.id]?.USD !== 0 && (
+                          <span className={`font-mono tabular-nums text-[10px] ${getSaldoColor(data.totalesPorEntidad[entidad.id]?.USD || 0)}`}>
+                            {formatMonto(data.totalesPorEntidad[entidad.id]?.USD || 0, 'USD')}
+                          </span>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
+                ))}
+
+                {/* Fila de totales finales */}
+                <TableRow className="bg-slate-100 font-bold sticky bottom-0 z-20 shadow-[0_-1px_3px_rgba(0,0,0,0.1)]">
+                  <TableCell className="sticky left-0 z-20 bg-slate-100 border-r py-3 shadow-[1px_0_3px_rgba(0,0,0,0.1)]">TOTALES</TableCell>
+                  {data.cuentas.map((cuenta) => {
+                    const monedaCuenta = cuenta.moneda as 'ARS' | 'USD';
+                    const totalCuenta = data.totalesPorCuenta[cuenta.id]?.[monedaCuenta] || 0;
+                    return (
+                      <TableCell key={cuenta.id} className="text-center p-2">
+                        <span className={`font-mono tabular-nums ${getSaldoColor(totalCuenta)}`}>
+                          {totalCuenta !== 0 ? formatMonto(totalCuenta, monedaCuenta) : '-'}
+                        </span>
+                      </TableCell>
+                    );
+                  })}
+                  <TableCell className="text-center font-bold bg-slate-200 sticky right-0 z-20 border-l p-2 shadow-[-1px_0_3px_rgba(0,0,0,0.1)]">
+                    <div className="flex flex-col gap-0.5 leading-none">
+                      <span className={`font-mono tabular-nums ${getSaldoColor(data.totalGeneral.ARS)}`}>{formatMonto(data.totalGeneral.ARS, 'ARS')}</span>
+                      <span className={`font-mono tabular-nums ${getSaldoColor(data.totalGeneral.USD)}`}>{formatMonto(data.totalGeneral.USD, 'USD')}</span>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </div>
+        </div>
       ) : null}
 
       {/* Panel Lateral de Detalle (Drill-down) */}
       <Sheet open={!!selectedCell} onOpenChange={(open) => !open && setSelectedCell(null)}>
-        <SheetContent className="sm:max-w-[500px] w-full overflow-y-auto">
-          <SheetHeader className="pb-4 border-b">
-            <SheetTitle className="flex items-center gap-2">
-              <Eye className="h-5 w-5 text-primary" />
-              Detalle de Transacciones
+        <SheetContent className="sm:max-w-[450px] w-full overflow-y-auto p-4">
+          <SheetHeader className="pb-4 border-b space-y-1">
+            <SheetTitle className="flex items-center gap-2 text-lg">
+              <Eye className="h-4 w-4 text-primary" />
+              Detalle de Movimientos
             </SheetTitle>
-            <SheetDescription>
-              Viendo movimientos de <strong>{selectedCell?.entidadNombre}</strong> en la cuenta <strong>{selectedCell?.cuentaNombre}</strong>
+            <SheetDescription className="text-xs">
+              <strong>{selectedCell?.entidadNombre}</strong> <span className="text-muted-foreground mx-1">•</span> <strong>{selectedCell?.cuentaNombre}</strong>
             </SheetDescription>
           </SheetHeader>
 
-          <div className="py-6 space-y-4">
+          <div className="py-4 space-y-3">
             {loadingDetail ? (
               <div className="flex flex-col items-center justify-center py-12">
-                <RefreshCw className="h-8 w-8 text-primary animate-spin mb-2" />
-                <p className="text-sm text-gray-500">Buscando movimientos...</p>
+                <RefreshCw className="h-8 w-8 text-primary animate-spin mb-2 opacity-20" />
+                <p className="text-xs text-gray-500 font-medium">Buscando...</p>
               </div>
             ) : detailTransactions.length > 0 ? (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {detailTransactions.map((t) => (
-                  <div key={t.id} className="p-4 rounded-lg border bg-card hover:shadow-sm transition-shadow">
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="flex flex-col">
-                        <span className="font-semibold text-sm">{t.descripcion}</span>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Badge variant={t.tipo === 'INGRESO' ? 'default' : 'destructive'} className="text-[10px] h-4 px-1">
-                            {t.tipo}
+                  <div key={t.id} className="p-3 rounded-lg border bg-card hover:bg-slate-50 transition-colors">
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="space-y-1 flex-1 min-w-0">
+                        <p className="font-semibold text-xs leading-tight truncate">{t.descripcion}</p>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={t.tipo === 'INGRESO' ? 'outline' : 'destructive'} className="text-[9px] h-4 px-1 leading-none border-green-200 text-green-700 bg-green-50 shadow-none">
+                            {t.tipo === 'INGRESO' ? 'Cobro' : 'Pago'}
                           </Badge>
-                          <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                             <Calendar className="h-3 w-3" />
-                            {format(new Date(t.fecha), 'dd/MM/yyyy')}
+                            {format(new Date(t.fecha), 'dd MMM yy')}
                           </span>
                         </div>
                       </div>
-                      <span className={`font-mono font-bold ${getSaldoColor(t.tipo === 'INGRESO' ? Number(t.monto) : -Number(t.monto))}`}>
-                        {formatMonto(Number(t.monto), t.moneda)}
-                      </span>
+                      <div className="text-right">
+                        <p className={`font-mono font-bold text-xs tabular-nums ${getSaldoColor(t.tipo === 'INGRESO' ? Number(t.monto) : -Number(t.monto))}`}>
+                          {formatMonto(Number(t.monto), t.moneda)}
+                        </p>
+                      </div>
                     </div>
                     {t.comentario && (
-                      <p className="text-xs text-gray-500 mt-2 italic bg-gray-50 p-2 rounded">
-                        "{t.comentario}"
+                      <p className="text-[10px] text-gray-500 mt-2 italic bg-slate-50/50 p-1.5 rounded border border-dashed">
+                        {t.comentario}
                       </p>
                     )}
-                    <div className="flex items-center gap-4 mt-3 pt-3 border-t text-[10px] text-gray-400">
-                      <div className="flex items-center gap-1">
-                        <User className="h-3 w-3" />
-                        {t.entidad?.nombre}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <CreditCard className="h-3 w-3" />
-                        {t.cuentaBancaria?.nombre}
-                      </div>
-                    </div>
                   </div>
                 ))}
               </div>
             ) : (
               <div className="text-center py-12 text-gray-500">
-                <BarChart3 className="h-12 w-12 mx-auto mb-2 opacity-20" />
-                <p>No se encontraron transacciones para estos filtros.</p>
+                <BarChart3 className="h-10 w-10 mx-auto mb-2 opacity-10" />
+                <p className="text-xs">No hay movimientos.</p>
               </div>
             )}
           </div>
