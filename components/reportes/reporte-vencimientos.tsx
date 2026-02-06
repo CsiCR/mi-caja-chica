@@ -10,18 +10,22 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { 
-  Calendar, 
-  Clock, 
-  AlertTriangle, 
-  CheckCircle, 
-  TrendingUp, 
-  TrendingDown, 
+import {
+  Calendar,
+  Clock,
+  AlertTriangle,
+  CheckCircle,
+  TrendingUp,
+  TrendingDown,
   RefreshCw,
   CalendarDays,
   CalendarClock,
-  Edit
+  Edit,
+  HelpCircle,
+  Filter,
+  Eye
 } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import toast from 'react-hot-toast';
@@ -70,9 +74,9 @@ interface VencimientosData {
 export function ReporteVencimientos() {
   const [data, setData] = useState<VencimientosData | null>(null);
   const [loading, setLoading] = useState(false);
-  const [entidades, setEntidades] = useState<Array<{id: string; nombre: string}>>([]);
-  const [cuentas, setCuentas] = useState<Array<{id: string; nombre: string; banco: string}>>([]);
-  
+  const [entidades, setEntidades] = useState<Array<{ id: string; nombre: string }>>([]);
+  const [cuentas, setCuentas] = useState<Array<{ id: string; nombre: string; banco: string }>>([]);
+
   // Filtros
   const [agrupacion, setAgrupacion] = useState<'semana' | 'mes'>('semana');
   const [tipoFilter, setTipoFilter] = useState('');
@@ -111,7 +115,7 @@ export function ReporteVencimientos() {
   const fetchVencimientos = async () => {
     try {
       setLoading(true);
-      
+
       const params = new URLSearchParams({
         agrupacion,
         periodos: periodos.toString(),
@@ -140,7 +144,7 @@ export function ReporteVencimientos() {
 
     try {
       setMarcandoRealizada(true);
-      
+
       const response = await fetch(`/api/transacciones/${transaccionAMarcar.id}/marcar-realizada`, {
         method: 'PATCH',
         headers: {
@@ -157,7 +161,7 @@ export function ReporteVencimientos() {
       setTransaccionAMarcar(null);
       setFechaReal('');
       fetchVencimientos(); // Actualizar datos
-      
+
       // Refrescar dashboard
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent('refreshDashboard'));
@@ -208,402 +212,367 @@ export function ReporteVencimientos() {
   return (
     <div className="space-y-6">
       {/* Filtros */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CalendarClock className="h-5 w-5" />
-            Reporte de Vencimientos Planificados
-          </CardTitle>
-          <CardDescription>
-            Visualiza tus transacciones planificadas organizadas por {agrupacion}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
-              <div>
-                <Label htmlFor="agrupacion">Agrupar por</Label>
-                <Select value={agrupacion} onValueChange={(value: 'semana' | 'mes') => setAgrupacion(value)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="semana">Semana</SelectItem>
-                    <SelectItem value="mes">Mes</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+      <div className="space-y-4 -mt-4">
+        {/* Barra de Filtros Zen */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 p-2 bg-slate-50 border rounded-lg sticky top-0 z-30 shadow-sm">
+          <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0 no-scrollbar">
+            <Select value={agrupacion} onValueChange={(value: 'semana' | 'mes') => setAgrupacion(value)}>
+              <SelectTrigger className="h-8 w-[100px] text-xs bg-white capitalize">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="semana">Semana</SelectItem>
+                <SelectItem value="mes">Mes</SelectItem>
+              </SelectContent>
+            </Select>
 
-              <div>
-                <Label htmlFor="tipo-filter">Tipo</Label>
-                <Select value={tipoFilter || 'all'} onValueChange={(value) => setTipoFilter(value === 'all' ? '' : value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todos" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="INGRESO">Ingresos</SelectItem>
-                    <SelectItem value="EGRESO">Egresos</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <Select value={tipoFilter || 'all'} onValueChange={(value) => setTipoFilter(value === 'all' ? '' : value)}>
+              <SelectTrigger className="h-8 w-[100px] text-xs bg-white">
+                <SelectValue placeholder="Tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="INGRESO">Ingresos</SelectItem>
+                <SelectItem value="EGRESO">Egresos</SelectItem>
+              </SelectContent>
+            </Select>
 
-              <div>
-                <Label htmlFor="moneda-filter">Moneda</Label>
-                <Select value={monedaFilter || 'all'} onValueChange={(value) => setMonedaFilter(value === 'all' ? '' : value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todas" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    <SelectItem value="ARS">ARS</SelectItem>
-                    <SelectItem value="USD">USD</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="entidad-filter">Entidad</Label>
-                <Select value={entidadFilter || 'all'} onValueChange={(value) => setEntidadFilter(value === 'all' ? '' : value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todas" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    {entidades.map((entidad) => (
-                      <SelectItem key={entidad.id} value={entidad.id}>
-                        {entidad.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="cuenta-filter">Cuenta</Label>
-                <Select value={cuentaFilter || 'all'} onValueChange={(value) => setCuentaFilter(value === 'all' ? '' : value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todas" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    {cuentas.map((cuenta) => (
-                      <SelectItem key={cuenta.id} value={cuenta.id}>
-                        {cuenta.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="periodos">Períodos a mostrar</Label>
-                <Select value={periodos.toString()} onValueChange={(value) => setPeriodos(parseInt(value))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="4">4 {agrupacion}s</SelectItem>
-                    <SelectItem value="8">8 {agrupacion}s</SelectItem>
-                    <SelectItem value="12">12 {agrupacion}s</SelectItem>
-                    <SelectItem value="24">24 {agrupacion}s</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-4 items-center">
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="solo-vencidas"
-                  checked={soloVencidas}
-                  onCheckedChange={setSoloVencidas}
-                />
-                <Label htmlFor="solo-vencidas" className="text-sm">
-                  Solo transacciones vencidas
-                </Label>
-              </div>
-              
-              <div className="flex gap-2 ml-auto">
-                <Button variant="outline" onClick={clearFilters}>
-                  Limpiar Filtros
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 text-xs gap-1 bg-white">
+                  <Filter className="h-3 w-3" />
+                  <span className="hidden sm:inline">Más Filtros</span>
+                  {(monedaFilter || entidadFilter || cuentaFilter || soloVencidas) && (
+                    <Badge variant="secondary" className="h-4 w-4 p-0 flex items-center justify-center rounded-full text-[10px]">
+                      !
+                    </Badge>
+                  )}
                 </Button>
-                <Button onClick={fetchVencimientos} disabled={loading}>
-                  <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                  Actualizar
-                </Button>
-              </div>
-            </div>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 p-4 space-y-4" align="start">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Moneda</Label>
+                    <Select value={monedaFilter || 'all'} onValueChange={(value) => setMonedaFilter(value === 'all' ? '' : value)}>
+                      <SelectTrigger className="h-8 text-xs mt-1">
+                        <SelectValue placeholder="Todas" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas</SelectItem>
+                        <SelectItem value="ARS">ARS</SelectItem>
+                        <SelectItem value="USD">USD</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Períodos</Label>
+                    <Select value={periodos.toString()} onValueChange={(value) => setPeriodos(parseInt(value))}>
+                      <SelectTrigger className="h-8 text-xs mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="4">4 {agrupacion}s</SelectItem>
+                        <SelectItem value="8">8 {agrupacion}s</SelectItem>
+                        <SelectItem value="12">12 {agrupacion}s</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="col-span-2">
+                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Entidad</Label>
+                    <Select value={entidadFilter || 'all'} onValueChange={(value) => setEntidadFilter(value === 'all' ? '' : value)}>
+                      <SelectTrigger className="h-8 text-xs mt-1">
+                        <SelectValue placeholder="Todas" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas</SelectItem>
+                        {entidades.map(e => <SelectItem key={e.id} value={e.id}>{e.nombre}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="col-span-2 flex items-center gap-2 pt-2 border-t">
+                    <Switch id="solo-vencidas-zen" checked={soloVencidas} onCheckedChange={setSoloVencidas} />
+                    <Label htmlFor="solo-vencidas-zen" className="text-xs">Solo vencidas</Label>
+                  </div>
+                </div>
+                <Button variant="ghost" size="sm" onClick={clearFilters} className="w-full text-xs h-8">Limpiar Filtros</Button>
+              </PopoverContent>
+            </Popover>
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Resumen General */}
-      {data && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Transacciones Pendientes</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {data.metadata.transaccionesPendientes}
-                  </p>
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+            {data && (
+              <div className="hidden lg:flex items-center gap-3 mr-2 text-[10px] font-medium border-r pr-3">
+                <div className="flex flex-col items-end leading-none">
+                  <span className="text-[8px] text-gray-400 uppercase">Pendientes</span>
+                  <span className="text-red-600 font-bold">{data.metadata.transaccionesPendientes}</span>
                 </div>
-                <Clock className="h-8 w-8 text-orange-600" />
               </div>
-            </CardContent>
-          </Card>
+            )}
 
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Períodos Vencidos</p>
-                  <p className="text-2xl font-bold text-red-600">
-                    {data.metadata.periodosVencidos}
-                  </p>
-                </div>
-                <AlertTriangle className="h-8 w-8 text-red-600" />
-              </div>
-            </CardContent>
-          </Card>
+            <Button size="sm" onClick={fetchVencimientos} disabled={loading} className="h-8 text-xs">
+              <RefreshCw className={`h-3 w-3 mr-1 ${loading ? 'animate-spin' : ''}`} />
+              Actualizar
+            </Button>
 
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Ingresos Esperados (ARS)</p>
-                  <p className="text-2xl font-bold text-green-600">
-                    {formatMonto(data.totalesGenerales.ARS.ingresos, 'ARS')}
-                  </p>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full">
+                  <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-80 p-4">
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <h4 className="font-semibold text-sm leading-none flex items-center gap-2">
+                      <HelpCircle className="h-4 w-4 text-primary" />
+                      Vencimientos Zen
+                    </h4>
+                    <p className="text-[11px] text-muted-foreground">Gestión de pagos y cobros previstos</p>
+                  </div>
+                  <div className="grid gap-3 text-xs">
+                    <div className="flex gap-2">
+                      <div className="w-4 h-4 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
+                        <AlertTriangle className="h-2 w-2 text-red-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-red-700">Identificación de Vencidos</p>
+                        <p className="text-muted-foreground text-[10px]">Los períodos en rojo contienen transacciones cuya fecha planificada ya pasó.</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <div className="w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 bg-blue-50">
+                        <Edit className="h-2 w-2 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Editar y Finalizar</p>
+                        <p className="text-muted-foreground text-[10px]">Usa este botón para ajustar el monto final o la fecha antes de pasar a Real.</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <TrendingUp className="h-8 w-8 text-green-600" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Egresos Esperados (ARS)</p>
-                  <p className="text-2xl font-bold text-red-600">
-                    {formatMonto(data.totalesGenerales.ARS.egresos, 'ARS')}
-                  </p>
-                </div>
-                <TrendingDown className="h-8 w-8 text-red-600" />
-              </div>
-            </CardContent>
-          </Card>
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
-      )}
 
-      {/* Timeline de Vencimientos */}
-      {loading ? (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-            <p className="mt-2 text-gray-500">Generando reporte de vencimientos...</p>
-          </CardContent>
-        </Card>
-      ) : data && data.grupos.length > 0 ? (
-        <div className="space-y-4">
-          {data.grupos.map((grupo) => (
-            <Card key={grupo.key} className={grupo.vencido ? 'border-red-200 bg-red-50/50' : ''}>
-              <CardHeader className="pb-3">
+        {/* Resumen General */}
+        {data && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="p-6">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-lg ${grupo.vencido ? 'bg-red-100' : 'bg-blue-100'}`}>
-                      {agrupacion === 'semana' ? (
-                        <CalendarDays className={`h-5 w-5 ${grupo.vencido ? 'text-red-600' : 'text-blue-600'}`} />
-                      ) : (
-                        <Calendar className={`h-5 w-5 ${grupo.vencido ? 'text-red-600' : 'text-blue-600'}`} />
-                      )}
-                    </div>
-                    <div>
-                      <CardTitle className="text-lg">{grupo.periodo}</CardTitle>
-                      <CardDescription className="flex items-center gap-2">
-                        {grupo.transacciones.length} transacciones planificadas
-                        {grupo.vencido && (
-                          <Badge variant="destructive" className="text-xs">
-                            <AlertTriangle className="h-3 w-3 mr-1" />
-                            Vencido
-                          </Badge>
-                        )}
-                      </CardDescription>
-                    </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Transacciones Pendientes</p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {data.metadata.transaccionesPendientes}
+                    </p>
                   </div>
+                  <Clock className="h-8 w-8 text-orange-600" />
+                </div>
+              </CardContent>
+            </Card>
 
-                  {/* Totales del período */}
-                  <div className="text-right">
-                    <div className="space-y-1">
-                      {grupo.totales.ARS.neto !== 0 && (
-                        <div className={`font-bold text-sm ${getSaldoColor(grupo.totales.ARS.neto)}`}>
-                          Neto ARS: {formatMonto(grupo.totales.ARS.neto, 'ARS')}
-                        </div>
-                      )}
-                      {grupo.totales.USD.neto !== 0 && (
-                        <div className={`font-bold text-sm ${getSaldoColor(grupo.totales.USD.neto)}`}>
-                          Neto USD: {formatMonto(grupo.totales.USD.neto, 'USD')}
-                        </div>
-                      )}
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Períodos Vencidos</p>
+                    <p className="text-2xl font-bold text-red-600">
+                      {data.metadata.periodosVencidos}
+                    </p>
+                  </div>
+                  <AlertTriangle className="h-8 w-8 text-red-600" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Ingresos Esperados (ARS)</p>
+                    <p className="text-2xl font-bold text-green-600">
+                      {formatMonto(data.totalesGenerales.ARS.ingresos, 'ARS')}
+                    </p>
+                  </div>
+                  <TrendingUp className="h-8 w-8 text-green-600" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Egresos Esperados (ARS)</p>
+                    <p className="text-2xl font-bold text-red-600">
+                      {formatMonto(data.totalesGenerales.ARS.egresos, 'ARS')}
+                    </p>
+                  </div>
+                  <TrendingDown className="h-8 w-8 text-red-600" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Timeline de Vencimientos */}
+        {loading ? (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+              <p className="mt-2 text-gray-500">Generando reporte de vencimientos...</p>
+            </CardContent>
+          </Card>
+        ) : data && data.grupos.length > 0 ? (
+          <div className="space-y-4">
+            {data.grupos.map((grupo) => (
+              <div key={grupo.key} className={`rounded-lg border overflow-hidden bg-white shadow-sm ${grupo.vencido ? 'border-red-200' : ''}`}>
+                <div className={`px-3 py-2 flex items-center justify-between border-b ${grupo.vencido ? 'bg-red-50' : 'bg-slate-50'}`}>
+                  <div className="flex items-center gap-2">
+                    <div className={`p-1 rounded ${grupo.vencido ? 'bg-red-200 text-red-700' : 'bg-slate-200 text-slate-700'}`}>
+                      <CalendarClock className="h-3 w-3" />
                     </div>
+                    <span className="text-xs font-bold uppercase tracking-tight">{grupo.periodo}</span>
+                    {grupo.vencido && <Badge variant="destructive" className="h-4 text-[8px] uppercase px-1">Vencido</Badge>}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {grupo.totales.ARS.neto !== 0 && (
+                      <span className={`text-[10px] font-bold ${getSaldoColor(grupo.totales.ARS.neto)}`}>
+                        ARS {formatMonto(grupo.totales.ARS.neto, 'ARS')}
+                      </span>
+                    )}
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
+                <div className="divide-y">
                   {grupo.transacciones.map((transaccion) => (
-                    <div
-                      key={transaccion.id}
-                      className="flex items-center justify-between p-4 rounded-lg border bg-white hover:shadow-sm transition-shadow"
-                    >
-                      <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                          <div className="font-medium">{transaccion.descripcion}</div>
-                          <div className="text-sm text-gray-500">
-                            {format(new Date(transaccion.fechaPlanificada), 'dd/MM/yyyy', { locale: es })}
-                          </div>
-                          {transaccion.comentario && (
-                            <div className="text-xs text-gray-400 mt-1">
-                              {transaccion.comentario}
-                            </div>
-                          )}
+                    <div key={transaccion.id} className="p-3 flex items-center justify-between hover:bg-slate-50 transition-colors gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-semibold truncate leading-tight">{transaccion.descripcion}</div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[10px] text-muted-foreground">{format(new Date(transaccion.fechaPlanificada), 'dd MMM')}</span>
+                          <span className="text-[10px] text-muted-foreground truncate opacity-70">• {transaccion.entidad.nombre}</span>
                         </div>
-
-                        <div className="text-sm">
-                          <div className="font-medium">{transaccion.entidad.nombre}</div>
-                          <div className="text-gray-500">{transaccion.cuentaBancaria.nombre}</div>
-                          <div className="text-gray-400">{transaccion.asientoContable.codigo}</div>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <div className={`text-xs font-bold tabular-nums ${transaccion.tipo === 'INGRESO' ? 'text-green-600' : 'text-red-600'}`}>
+                          {formatMonto(transaccion.monto, transaccion.moneda)}
                         </div>
-
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <Badge variant={transaccion.tipo === 'INGRESO' ? 'default' : 'destructive'}>
-                              {transaccion.tipo === 'INGRESO' ? 'Ingreso' : 'Egreso'}
-                            </Badge>
-                            <div className={`font-bold mt-1 ${transaccion.tipo === 'INGRESO' ? 'text-green-600' : 'text-red-600'}`}>
-                              {transaccion.tipo === 'INGRESO' ? '+' : '-'}{formatMonto(transaccion.monto, transaccion.moneda)}
-                            </div>
-                          </div>
-                          
-                          <div className="flex gap-2 ml-4">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setTransaccionAEditar(transaccion)}
-                              className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
-                            >
-                              <Edit className="h-4 w-4 mr-1" />
-                              Editar y Finalizar
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => abrirDialogoMarcarRealizada(transaccion)}
-                            >
-                              <CheckCircle className="h-4 w-4 mr-1" />
-                              Solo Marcar
-                            </Button>
-                          </div>
+                        <div className="flex gap-1 mt-1 justify-end">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setTransaccionAEditar(transaccion)}
+                            className="h-6 w-6 p-0 text-blue-600 hover:bg-blue-50"
+                            title="Editar y Finalizar"
+                          >
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => abrirDialogoMarcarRealizada(transaccion)}
+                            className="h-6 w-6 p-0 text-green-600 hover:bg-green-50"
+                            title="Marcar Realizada"
+                          >
+                            <CheckCircle className="h-3 w-3" />
+                          </Button>
                         </div>
                       </div>
                     </div>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : data ? (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <CalendarClock className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-4 text-lg font-semibold text-gray-900">No hay vencimientos</h3>
-            <p className="mt-2 text-gray-500">
-              No se encontraron transacciones planificadas con los filtros aplicados.
-            </p>
-            <Button onClick={clearFilters} className="mt-4" variant="outline">
-              Limpiar filtros
-            </Button>
-          </CardContent>
-        </Card>
-      ) : null}
+              </div>
+            ))}
+          </div>
+        ) : data ? (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <CalendarClock className="mx-auto h-12 w-12 text-gray-400" />
+              <h3 className="mt-4 text-lg font-semibold text-gray-900">No hay vencimientos</h3>
+              <p className="mt-2 text-gray-500">
+                No se encontraron transacciones planificadas con los filtros aplicados.
+              </p>
+              <Button onClick={clearFilters} className="mt-4" variant="outline">
+                Limpiar filtros
+              </Button>
+            </CardContent>
+          </Card>
+        ) : null}
 
-      {/* Dialog para marcar como realizada */}
-      <Dialog open={!!transaccionAMarcar} onOpenChange={(open) => !open && setTransaccionAMarcar(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Marcar Transacción como Realizada</DialogTitle>
-            <DialogDescription>
-              Confirma la realización de esta transacción planificada
-            </DialogDescription>
-          </DialogHeader>
-          
-          {transaccionAMarcar && (
-            <div className="space-y-4">
-              <div className="p-4 rounded-lg bg-gray-50">
-                <div className="font-medium">{transaccionAMarcar.descripcion}</div>
-                <div className="text-sm text-gray-600 mt-1">
-                  {transaccionAMarcar.entidad.nombre} • {transaccionAMarcar.cuentaBancaria.nombre}
+        {/* Dialog para marcar como realizada */}
+        <Dialog open={!!transaccionAMarcar} onOpenChange={(open) => !open && setTransaccionAMarcar(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Marcar Transacción como Realizada</DialogTitle>
+              <DialogDescription>
+                Confirma la realización de esta transacción planificada
+              </DialogDescription>
+            </DialogHeader>
+
+            {transaccionAMarcar && (
+              <div className="space-y-4">
+                <div className="p-4 rounded-lg bg-gray-50">
+                  <div className="font-medium">{transaccionAMarcar.descripcion}</div>
+                  <div className="text-sm text-gray-600 mt-1">
+                    {transaccionAMarcar.entidad.nombre} • {transaccionAMarcar.cuentaBancaria.nombre}
+                  </div>
+                  <div className={`font-bold mt-2 ${transaccionAMarcar.tipo === 'INGRESO' ? 'text-green-600' : 'text-red-600'}`}>
+                    {transaccionAMarcar.tipo === 'INGRESO' ? '+' : '-'}{formatMonto(transaccionAMarcar.monto, transaccionAMarcar.moneda)}
+                  </div>
                 </div>
-                <div className={`font-bold mt-2 ${transaccionAMarcar.tipo === 'INGRESO' ? 'text-green-600' : 'text-red-600'}`}>
-                  {transaccionAMarcar.tipo === 'INGRESO' ? '+' : '-'}{formatMonto(transaccionAMarcar.monto, transaccionAMarcar.moneda)}
+
+                <div>
+                  <Label htmlFor="fecha-real">Fecha real de la transacción</Label>
+                  <Input
+                    id="fecha-real"
+                    type="date"
+                    value={fechaReal}
+                    onChange={(e) => setFechaReal(e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
+
+                <div className="flex gap-2 justify-end">
+                  <Button
+                    variant="outline"
+                    onClick={() => setTransaccionAMarcar(null)}
+                    disabled={marcandoRealizada}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    onClick={marcarComoRealizada}
+                    disabled={!fechaReal || marcandoRealizada}
+                  >
+                    {marcandoRealizada ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Marcando...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Marcar como Realizada
+                      </>
+                    )}
+                  </Button>
                 </div>
               </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
-              <div>
-                <Label htmlFor="fecha-real">Fecha real de la transacción</Label>
-                <Input
-                  id="fecha-real"
-                  type="date"
-                  value={fechaReal}
-                  onChange={(e) => setFechaReal(e.target.value)}
-                  className="mt-1"
-                />
-              </div>
-
-              <div className="flex gap-2 justify-end">
-                <Button
-                  variant="outline"
-                  onClick={() => setTransaccionAMarcar(null)}
-                  disabled={marcandoRealizada}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  onClick={marcarComoRealizada}
-                  disabled={!fechaReal || marcandoRealizada}
-                >
-                  {marcandoRealizada ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                      Marcando...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Marcar como Realizada
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Diálogo para editar y finalizar */}
-      <EditarAntesFinalizarDialog
-        open={!!transaccionAEditar}
-        onClose={() => setTransaccionAEditar(null)}
-        onSuccess={() => {
-          setTransaccionAEditar(null);
-          fetchVencimientos(); // Actualizar datos
-        }}
-        transaccion={transaccionAEditar}
-      />
+        <EditarAntesFinalizarDialog
+          open={!!transaccionAEditar}
+          onClose={() => setTransaccionAEditar(null)}
+          onSuccess={() => {
+            setTransaccionAEditar(null);
+            fetchVencimientos(); // Actualizar datos
+          }}
+          transaccion={transaccionAEditar}
+        />
+      </div>
     </div>
   );
 }

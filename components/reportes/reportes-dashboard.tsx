@@ -68,128 +68,13 @@ export function ReportesDashboard() {
       )}
 
       {activeReport === 'transacciones' && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-orange-100 rounded-lg">
-                    <FileSpreadsheet className="h-6 w-6 text-orange-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold">Búsqueda Global</h3>
-                    <p className="text-sm text-gray-600">En todos los campos de transacciones</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-red-100 rounded-lg">
-                    <BarChart3 className="h-6 w-6 text-red-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold">Ordenamiento</h3>
-                    <p className="text-sm text-gray-600">Por cualquier columna</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card
-              className="cursor-pointer hover:shadow-md transition-shadow"
-              onClick={async () => {
-                try {
-                  const response = await fetch('/api/transacciones/export-csv');
-                  if (!response.ok) throw new Error('Error al exportar');
-
-                  const blob = await response.blob();
-                  const url = window.URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-
-                  const contentDisposition = response.headers.get('Content-Disposition');
-                  const fileName = contentDisposition?.match(/filename="([^"]+)"/)?.[1] || 'transacciones.csv';
-
-                  a.download = fileName;
-                  document.body.appendChild(a);
-                  a.click();
-                  document.body.removeChild(a);
-                  window.URL.revokeObjectURL(url);
-
-                  toast.success('Archivo CSV descargado correctamente');
-                } catch (error) {
-                  console.error('Error:', error);
-                  toast.error('Error al exportar transacciones');
-                }
-              }}
-            >
-              <CardContent className="p-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-indigo-100 rounded-lg">
-                    <FileSpreadsheet className="h-6 w-6 text-indigo-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold">Exportar CSV</h3>
-                    <p className="text-sm text-gray-600">Descarga completa de datos</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
+        <div className="space-y-4">
           <ReporteTransacciones />
         </div>
       )}
 
       {activeReport === 'vencimientos' && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-orange-100 rounded-lg">
-                    <CalendarClock className="h-6 w-6 text-orange-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold">Timeline de Vencimientos</h3>
-                    <p className="text-sm text-gray-600">Organizados por semana o mes</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-red-100 rounded-lg">
-                    <CalendarClock className="h-6 w-6 text-red-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold">Gestión de Vencidos</h3>
-                    <p className="text-sm text-gray-600">Identifica y gestiona pendientes</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <CalendarClock className="h-6 w-6 text-green-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold">Marcar Realizadas</h3>
-                    <p className="text-sm text-gray-600">Actualiza estado directamente</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
+        <div className="space-y-4">
           <ReporteVencimientos />
         </div>
       )}
