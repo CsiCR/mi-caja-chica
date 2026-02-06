@@ -4,7 +4,8 @@ import { ReactNode, useState } from 'react';
 import { DashboardNavigation } from './dashboard-navigation';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
-import { Menu, Wallet } from 'lucide-react';
+import { Menu } from 'lucide-react';
+import Image from 'next/image';
 
 interface DashboardLayoutServerProps {
   children: ReactNode;
@@ -33,9 +34,13 @@ export function DashboardLayoutServer({ children, user }: DashboardLayoutServerP
             {/* Logo con botón de cerrar */}
             <div className="flex h-16 shrink-0 items-center border-b border-gray-200 px-6">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
-                  <Wallet className="h-5 w-5 text-white" />
-                </div>
+                <Image
+                  src="/logo-reduced.png"
+                  alt="Logo"
+                  width={32}
+                  height={32}
+                  className="rounded-lg"
+                />
                 <span className="text-xl font-bold text-gray-900">Mi Caja Chica</span>
               </div>
               <Button
@@ -90,14 +95,18 @@ export function DashboardLayoutServer({ children, user }: DashboardLayoutServerP
 
           {/* Mobile App Title */}
           <div className="lg:hidden flex items-center gap-2">
-            <div className="w-6 h-6 bg-green-600 rounded-full flex items-center justify-center">
-              <Wallet className="h-4 w-4 text-white" />
-            </div>
+            <Image
+              src="/logo-reduced.png"
+              alt="Logo"
+              width={24}
+              height={24}
+              className="rounded-md"
+            />
             <span className="text-lg font-bold text-gray-900">Mi Caja Chica</span>
           </div>
-          
+
           <div className="flex-1" />
-          
+
           <div className="text-sm text-gray-600">
             {user?.firstName || user?.name || 'Usuario'}
           </div>

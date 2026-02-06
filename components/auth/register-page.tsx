@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { Wallet, Mail, Lock, Eye, EyeOff, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -36,7 +37,7 @@ export function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.firstName || !formData.lastName || !formData.email || !formData.password || !formData.confirmPassword) {
       toast({
         title: 'Error',
@@ -124,11 +125,17 @@ export function RegisterPage() {
       <div className="w-full max-w-md space-y-6">
         {/* Logo y Título */}
         <div className="text-center space-y-2">
-          <div className="mx-auto w-16 h-16 bg-green-600 rounded-full flex items-center justify-center mb-4">
-            <Wallet className="h-8 w-8 text-white" />
+          <div className="mx-auto mb-4">
+            <Image
+              src="/logo-reduced.png"
+              alt="Logo reducido"
+              width={80}
+              height={80}
+              className="mx-auto"
+            />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">Mi Caja Chica</h1>
-          <p className="text-gray-600">Crea tu cuenta gratuita</p>
+          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Mi Caja Chica</h1>
+          <p className="text-gray-600 font-medium">Crea tu cuenta gratuita</p>
         </div>
 
         {/* Card de Registro */}
@@ -158,7 +165,7 @@ export function RegisterPage() {
                     />
                   </div>
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="lastName">Apellido</Label>
                   <div className="relative">
@@ -250,8 +257,8 @@ export function RegisterPage() {
                 </div>
               </div>
 
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 className="w-full bg-green-600 hover:bg-green-700"
                 disabled={isLoading}
               >
@@ -264,8 +271,8 @@ export function RegisterPage() {
               <div className="text-center">
                 <p className="text-sm text-gray-600">
                   ¿Ya tienes una cuenta?{' '}
-                  <Link 
-                    href="/" 
+                  <Link
+                    href="/"
                     className="text-green-600 hover:text-green-700 font-medium"
                   >
                     Inicia sesión

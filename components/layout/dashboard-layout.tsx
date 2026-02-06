@@ -30,6 +30,7 @@ import {
   User
 } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
@@ -99,12 +100,16 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     <div className="flex h-full flex-col">
       {/* Logo */}
       <div className="flex h-16 shrink-0 items-center border-b border-gray-200 px-6">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
-            <Wallet className="h-5 w-5 text-white" />
-          </div>
+        <Link href="/dashboard" className="flex items-center gap-2">
+          <Image
+            src="/logo-reduced.png"
+            alt="Logo"
+            width={32}
+            height={32}
+            className="rounded-lg shadow-sm"
+          />
           <span className="text-xl font-bold text-gray-900">Mi Caja Chica</span>
-        </div>
+        </Link>
         {/* Cerrar en móvil */}
         {isMobile && (
           <Button
@@ -209,7 +214,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       <div className="lg:pl-64">
         {/* Top Header */}
         <div className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-gray-200 bg-white px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8"
-             style={{ minHeight: '64px' }}>
+          style={{ minHeight: '64px' }}>
           {/* Hamburger Menu Button */}
           <Button
             variant="outline"
@@ -222,12 +227,16 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             <Menu className="h-6 w-6 text-green-700" />
             <span className="sr-only">Abrir menú</span>
           </Button>
-          
+
           {/* Mobile App Title */}
           <div className="lg:hidden flex items-center gap-2">
-            <div className="w-6 h-6 bg-green-600 rounded-full flex items-center justify-center">
-              <Wallet className="h-4 w-4 text-white" />
-            </div>
+            <Image
+              src="/logo-reduced.png"
+              alt="Logo"
+              width={24}
+              height={24}
+              className="rounded-md"
+            />
             <span className="text-lg font-bold text-gray-900">Mi Caja Chica</span>
           </div>
 
