@@ -383,6 +383,11 @@ export function ReporteTransacciones() {
             </div>
           )}
 
+          <Button variant="outline" size="sm" onClick={exportToCsv} className="h-8 text-xs gap-1 bg-white">
+            <Download className="h-3 w-3" />
+            <span className="hidden sm:inline">Exportar</span>
+          </Button>
+
           <Button size="sm" onClick={fetchTransacciones} disabled={loading} className="h-8 text-xs">
             <RefreshCw className={`h-3 w-3 mr-1 ${loading ? 'animate-spin' : ''}`} />
             Actualizar
