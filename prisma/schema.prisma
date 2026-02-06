@@ -1,0 +1,180 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  refresh_token_expires_in Int?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model User {
+  id                String            @id @default(cuid())
+  name              String?
+  email             String            @unique
+  password          String?
+  firstName         String?
+  lastName          String?
+  emailVerified     DateTime?
+  image             String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  accounts          Account[]
+  asientosContables AsientoContable[]
+  cuentasBancarias  CuentaBancaria[]
+  entidades         Entidad[]
+  sessions          Session[]
+  transacciones     Transaccion[]
+
+  @@map("users")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verificationtokens")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expires   DateTime
+  createdAt DateTime @default(now())
+  used      Boolean  @default(false)
+
+  @@map("password_reset_tokens")
+}
+
+model Entidad {
+  id            String        @id @default(cuid())
+  nombre        String
+  descripcion   String?
+  tipo          TipoEntidad
+  activa        Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  userId        String
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transacciones Transaccion[]
+  asientosContables AsientoContable[]
+
+  @@map("entidades")
+}
+
+model CuentaBancaria {
+  id            String        @id @default(cuid())
+  nombre        String
+  banco         String
+  numeroCuenta  String?
+  tipoCuenta    String?
+  moneda        Moneda        @default(ARS)
+  activa        Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  userId        String
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transacciones Transaccion[]
+
+  @@map("cuentas_bancarias")
+}
+
+model AsientoContable {
+  id            String        @id @default(cuid())
+  codigo        String
+  nombre        String
+  descripcion   String?
+  activo        Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  userId        String
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transacciones Transaccion[]
+  entidadId     String?
+  entidad       Entidad?      @relation(fields: [entidadId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, codigo])
+  @@map("asientos_contables")
+}
+
+model Transaccion {
+  id                String            @id @default(cuid())
+  descripcion       String
+  monto             Decimal           @db.Decimal(15, 2)
+  moneda            Moneda            @default(ARS)
+  tipo              TipoTransaccion
+  estado            EstadoTransaccion @default(REAL)
+  fecha             DateTime
+  fechaPlanificada  DateTime?
+  comentario        String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  entidadId         String
+  cuentaBancariaId  String
+  asientoContableId String
+  userId            String
+  asientoContable   AsientoContable   @relation(fields: [asientoContableId], references: [id], onDelete: Cascade)
+  cuentaBancaria    CuentaBancaria    @relation(fields: [cuentaBancariaId], references: [id], onDelete: Cascade)
+  entidad           Entidad           @relation(fields: [entidadId], references: [id], onDelete: Cascade)
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("transacciones")
+}
+
+enum Moneda {
+  ARS
+  USD
+}
+
+enum TipoTransaccion {
+  INGRESO
+  EGRESO
+}
+
+enum EstadoTransaccion {
+  REAL
+  PLANIFICADA
+}
+
+enum TipoEntidad {
+  FREELANCE
+  COMERCIO
+  SERVICIOS
+  CONSTRUCCION
+  TECNOLOGIA
+  PERSONAL
+}
