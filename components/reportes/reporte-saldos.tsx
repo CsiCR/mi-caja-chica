@@ -13,7 +13,8 @@ import { DatePickerWithRange } from '@/components/ui/date-range-picker';
 import { DateRange } from 'react-day-picker';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { BarChart3, TrendingUp, TrendingDown, DollarSign, RefreshCw } from 'lucide-react';
+import { BarChart3, TrendingUp, TrendingDown, DollarSign, RefreshCw, Eye, Calendar, User, CreditCard } from 'lucide-react';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import toast from 'react-hot-toast';
 
 interface SaldosData {
@@ -57,15 +58,25 @@ interface SaldosData {
 export function ReporteSaldos() {
   const [data, setData] = useState<SaldosData | null>(null);
   const [loading, setLoading] = useState(false);
-  const [entidades, setEntidades] = useState<Array<{id: string; nombre: string}>>([]);
-  const [cuentas, setCuentas] = useState<Array<{id: string; nombre: string; banco: string}>>([]);
-  
+  const [entidades, setEntidades] = useState<Array<{ id: string; nombre: string }>>([]);
+  const [cuentas, setCuentas] = useState<Array<{ id: string; nombre: string; banco: string }>>([]);
+
   // Filtros
   const [entidadFilter, setEntidadFilter] = useState('');
   const [cuentaFilter, setCuentaFilter] = useState('');
   const [monedaFilter, setMonedaFilter] = useState('');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [incluirPlanificadas, setIncluirPlanificadas] = useState(false);
+
+  // Drill-down state
+  const [selectedCell, setSelectedCell] = useState<{
+    entidadId: string;
+    cuentaId: string;
+    entidadNombre: string;
+    cuentaNombre: string;
+  } | null>(null);
+  const [detailTransactions, setDetailTransactions] = useState<any[]>([]);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   const fetchOptions = async () => {
     try {
@@ -90,7 +101,7 @@ export function ReporteSaldos() {
   const fetchSaldos = async () => {
     try {
       setLoading(true);
-      
+
       const params = new URLSearchParams({
         ...(entidadFilter && { entidadId: entidadFilter }),
         ...(cuentaFilter && { cuentaBancariaId: cuentaFilter }),
@@ -110,6 +121,30 @@ export function ReporteSaldos() {
       toast.error('Error al cargar el reporte de saldos');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchDetail = async (entidadId: string, cuentaId: string, entidadNombre: string, cuentaNombre: string) => {
+    try {
+      setLoadingDetail(true);
+      setSelectedCell({ entidadId, cuentaId, entidadNombre, cuentaNombre });
+
+      const params = new URLSearchParams({
+        entidadId,
+        cuentaBancariaId: cuentaId,
+        incluirPlanificadas: incluirPlanificadas.toString(),
+      });
+
+      const response = await fetch(`/api/reportes/saldos/detalle?${params}`);
+      if (!response.ok) throw new Error('Error al cargar detalle');
+
+      const transactions = await response.json();
+      setDetailTransactions(transactions);
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error('No se pudo cargar el detalle de transacciones');
+    } finally {
+      setLoadingDetail(false);
     }
   };
 
@@ -133,6 +168,27 @@ export function ReporteSaldos() {
     if (monto > 0) return 'text-green-600';
     if (monto < 0) return 'text-red-600';
     return 'text-gray-500';
+  };
+
+  const getHeatmapStyle = (monto: number, moneda: string) => {
+    if (!monto || monto === 0) return undefined;
+
+    // Calcular intensidad simple basada en el monto
+    const absMonto = Math.abs(monto);
+    let intensity = 0;
+
+    if (moneda === 'ARS') {
+      intensity = Math.min(absMonto / 200000, 1); // Subo el umbral a 200k para mejor rango
+    } else {
+      intensity = Math.min(absMonto / 1000, 1); // Subo el umbral a 1k USD
+    }
+
+    const opacity = 0.05 + (intensity * 0.25); // Rango de 5% a 30% de opacidad
+    const color = monto > 0 ? '34, 197, 94' : '239, 68, 68'; // Green-500 o Red-500
+
+    return {
+      backgroundColor: `rgba(${color}, ${opacity})`,
+    } as React.CSSProperties;
   };
 
   const clearFilters = () => {
@@ -348,9 +404,14 @@ export function ReporteSaldos() {
                         const saldo = data.saldosMatrix[entidad.id]?.[cuenta.id];
                         const monedaCuenta = cuenta.moneda as 'ARS' | 'USD';
                         const montoSaldo = saldo?.[monedaCuenta] || 0;
-                        
+
                         return (
-                          <TableCell key={cuenta.id} className="text-center">
+                          <TableCell
+                            key={cuenta.id}
+                            className="text-center cursor-pointer hover:bg-slate-50 transition-colors"
+                            style={getHeatmapStyle(montoSaldo, monedaCuenta)}
+                            onClick={() => fetchDetail(entidad.id, cuenta.id, entidad.nombre, cuenta.nombre)}
+                          >
                             <span className={`font-mono text-sm ${getSaldoColor(montoSaldo)}`}>
                               {montoSaldo !== 0 ? formatMonto(montoSaldo, monedaCuenta) : '-'}
                             </span>
@@ -376,14 +437,14 @@ export function ReporteSaldos() {
                       </TableCell>
                     </TableRow>
                   ))}
-                  
+
                   {/* Fila de totales */}
                   <TableRow className="bg-gray-50 font-bold">
                     <TableCell className="font-bold">TOTALES</TableCell>
                     {data.cuentas.map((cuenta) => {
                       const monedaCuenta = cuenta.moneda as 'ARS' | 'USD';
                       const totalCuenta = data.totalesPorCuenta[cuenta.id]?.[monedaCuenta] || 0;
-                      
+
                       return (
                         <TableCell key={cuenta.id} className="text-center">
                           <span className={`font-mono text-sm ${getSaldoColor(totalCuenta)}`}>
@@ -409,6 +470,74 @@ export function ReporteSaldos() {
           </CardContent>
         </Card>
       ) : null}
+
+      {/* Panel Lateral de Detalle (Drill-down) */}
+      <Sheet open={!!selectedCell} onOpenChange={(open) => !open && setSelectedCell(null)}>
+        <SheetContent className="sm:max-w-[500px] w-full overflow-y-auto">
+          <SheetHeader className="pb-4 border-b">
+            <SheetTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5 text-primary" />
+              Detalle de Transacciones
+            </SheetTitle>
+            <SheetDescription>
+              Viendo movimientos de <strong>{selectedCell?.entidadNombre}</strong> en la cuenta <strong>{selectedCell?.cuentaNombre}</strong>
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="py-6 space-y-4">
+            {loadingDetail ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <RefreshCw className="h-8 w-8 text-primary animate-spin mb-2" />
+                <p className="text-sm text-gray-500">Buscando movimientos...</p>
+              </div>
+            ) : detailTransactions.length > 0 ? (
+              <div className="space-y-4">
+                {detailTransactions.map((t) => (
+                  <div key={t.id} className="p-4 rounded-lg border bg-card hover:shadow-sm transition-shadow">
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-sm">{t.descripcion}</span>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant={t.tipo === 'INGRESO' ? 'default' : 'destructive'} className="text-[10px] h-4 px-1">
+                            {t.tipo}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {format(new Date(t.fecha), 'dd/MM/yyyy')}
+                          </span>
+                        </div>
+                      </div>
+                      <span className={`font-mono font-bold ${getSaldoColor(t.tipo === 'INGRESO' ? Number(t.monto) : -Number(t.monto))}`}>
+                        {formatMonto(Number(t.monto), t.moneda)}
+                      </span>
+                    </div>
+                    {t.comentario && (
+                      <p className="text-xs text-gray-500 mt-2 italic bg-gray-50 p-2 rounded">
+                        "{t.comentario}"
+                      </p>
+                    )}
+                    <div className="flex items-center gap-4 mt-3 pt-3 border-t text-[10px] text-gray-400">
+                      <div className="flex items-center gap-1">
+                        <User className="h-3 w-3" />
+                        {t.entidad?.nombre}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <CreditCard className="h-3 w-3" />
+                        {t.cuentaBancaria?.nombre}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 text-gray-500">
+                <BarChart3 className="h-12 w-12 mx-auto mb-2 opacity-20" />
+                <p>No se encontraron transacciones para estos filtros.</p>
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
