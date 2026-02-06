@@ -18,8 +18,8 @@ export const metadata: Metadata = {
     title: 'Mi Caja Chica',
   },
   icons: {
-    icon: '/icons/icon.svg',
-    apple: '/icons/icon.svg',
+    icon: '/logo-reduced.png',
+    apple: '/logo-reduced.png',
   },
 };
 
