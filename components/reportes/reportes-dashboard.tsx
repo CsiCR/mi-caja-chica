@@ -62,51 +62,7 @@ export function ReportesDashboard() {
 
       {/* Contenido del Reporte Activo */}
       {activeReport === 'saldos' && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <BarChart3 className="h-6 w-6 text-blue-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold">Tabla Cruzada</h3>
-                    <p className="text-sm text-gray-600">Saldos por entidad y cuenta</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <PieChart className="h-6 w-6 text-green-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold">Filtros Avanzados</h3>
-                    <p className="text-sm text-gray-600">Por entidad, cuenta y período</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    <FileSpreadsheet className="h-6 w-6 text-purple-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold">Tiempo Real</h3>
-                    <p className="text-sm text-gray-600">Datos actualizados al instante</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
+        <div className="space-y-4">
           <ReporteSaldos />
         </div>
       )}
@@ -142,8 +98,8 @@ export function ReportesDashboard() {
               </CardContent>
             </Card>
 
-            <Card 
-              className="cursor-pointer hover:shadow-md transition-shadow" 
+            <Card
+              className="cursor-pointer hover:shadow-md transition-shadow"
               onClick={async () => {
                 try {
                   const response = await fetch('/api/transacciones/export-csv');
@@ -153,10 +109,10 @@ export function ReportesDashboard() {
                   const url = window.URL.createObjectURL(blob);
                   const a = document.createElement('a');
                   a.href = url;
-                  
+
                   const contentDisposition = response.headers.get('Content-Disposition');
                   const fileName = contentDisposition?.match(/filename="([^"]+)"/)?.[1] || 'transacciones.csv';
-                  
+
                   a.download = fileName;
                   document.body.appendChild(a);
                   a.click();

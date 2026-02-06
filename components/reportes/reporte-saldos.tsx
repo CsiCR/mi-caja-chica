@@ -13,8 +13,9 @@ import { DatePickerWithRange } from '@/components/ui/date-range-picker';
 import { DateRange } from 'react-day-picker';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { BarChart3, TrendingUp, TrendingDown, DollarSign, RefreshCw, Eye, Calendar, User, CreditCard } from 'lucide-react';
+import { BarChart3, TrendingUp, TrendingDown, DollarSign, RefreshCw, Eye, Calendar, User, CreditCard, HelpCircle } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import toast from 'react-hot-toast';
 
 interface SaldosData {
@@ -257,6 +258,52 @@ export function ReporteSaldos() {
             <RefreshCw className={`h-3 w-3 mr-1 ${loading ? 'animate-spin' : ''}`} />
             Actualizar
           </Button>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full">
+                <HelpCircle className="h-4 w-4 text-muted-foreground" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-80 p-4">
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <h4 className="font-semibold text-sm leading-none flex items-center gap-2">
+                    <HelpCircle className="h-4 w-4 text-primary" />
+                    Guía de Reporte Zen
+                  </h4>
+                  <p className="text-[11px] text-muted-foreground">Funciones clave del reporte de saldos</p>
+                </div>
+                <div className="grid gap-3 text-xs">
+                  <div className="flex gap-2">
+                    <div className="w-4 h-4 rounded bg-green-500/20 border border-green-500/30 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium">Mapa de Calor</p>
+                      <p className="text-muted-foreground text-[10px]">La intensidad del color verde (ingresos) o rojo (gastos) indica el peso relativo del saldo.</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 bg-slate-50">
+                      <Eye className="h-2 w-2" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Drill-down (Clic en celda)</p>
+                      <p className="text-muted-foreground text-[10px]">Toca cualquier monto para ver el listado detallado de movimientos que lo componen.</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 bg-slate-50">
+                      <TrendingUp className="h-2 w-2" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Navegación Móvil</p>
+                      <p className="text-muted-foreground text-[10px]">El nombre de la entidad está "bloqueado" a la izquierda para que nunca pierdas el contexto al deslizar.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
 
@@ -381,8 +428,11 @@ export function ReporteSaldos() {
                       <div className="space-y-1 flex-1 min-w-0">
                         <p className="font-semibold text-xs leading-tight truncate">{t.descripcion}</p>
                         <div className="flex items-center gap-2">
-                          <Badge variant={t.tipo === 'INGRESO' ? 'outline' : 'destructive'} className="text-[9px] h-4 px-1 leading-none border-green-200 text-green-700 bg-green-50 shadow-none">
+                          <Badge variant={t.tipo === 'INGRESO' ? 'outline' : 'destructive'} className={`text-[9px] h-4 px-1 leading-none shadow-none ${t.tipo === 'INGRESO' ? 'border-green-200 text-green-700 bg-green-50' : ''}`}>
                             {t.tipo === 'INGRESO' ? 'Cobro' : 'Pago'}
+                          </Badge>
+                          <Badge variant="secondary" className={`text-[9px] h-4 px-1 leading-none shadow-none font-normal ${t.estado === 'PLANIFICADA' ? 'bg-amber-50 text-amber-700 border-amber-100' : 'bg-blue-50 text-blue-700 border-blue-100'}`}>
+                            {t.estado === 'PLANIFICADA' ? 'Planificado' : 'Real'}
                           </Badge>
                           <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                             <Calendar className="h-3 w-3" />
