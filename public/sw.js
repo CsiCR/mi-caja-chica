@@ -2,7 +2,7 @@ const CACHE_NAME = 'mi-caja-chica-v1';
 const ASSETS_TO_CACHE = [
     '/',
     '/manifest.json',
-    '/icons/icon.svg',
+    '/app-icon.png',
 ];
 
 self.addEventListener('install', (event) => {
