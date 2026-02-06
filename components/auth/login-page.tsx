@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { Wallet, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export function LoginPage() {
   const [email, setEmail] = useState('');
@@ -72,11 +73,17 @@ export function LoginPage() {
       <div className="w-full max-w-md space-y-6">
         {/* Logo y Título */}
         <div className="text-center space-y-2">
-          <div className="mx-auto w-16 h-16 bg-green-600 rounded-full flex items-center justify-center mb-4">
-            <Wallet className="h-8 w-8 text-white" />
+          <div className="mx-auto mb-4">
+            <Image
+              src="/logo-reduced.png"
+              alt="Logo reducido"
+              width={80}
+              height={80}
+              className="mx-auto"
+            />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">Mi Caja Chica</h1>
-          <p className="text-gray-600">Gestión financiera para emprendedores</p>
+          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Mi Caja Chica</h1>
+          <p className="text-gray-600 font-medium">Gestión financiera para emprendedores</p>
         </div>
 
         {/* Card de Login */}
