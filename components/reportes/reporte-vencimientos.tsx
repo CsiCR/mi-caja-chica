@@ -383,7 +383,7 @@ export function ReporteVencimientos() {
                 disabled={loadingCalendar}
               />
               <a
-                href={`https://calendar.google.com/calendar/u/0/r/month/${currentMonth.getFullYear()}/${currentMonth.getMonth() + 1}/1${session?.user?.email ? `?authuser=${encodeURIComponent(session.user.email)}` : ''}`}
+                href={`https://calendar.google.com/calendar/u/${session?.user?.email ? encodeURIComponent(session.user.email) : '0'}/r/month/${currentMonth.getFullYear()}/${currentMonth.getMonth() + 1}/1`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-[10px] sm:text-xs font-medium flex items-center gap-1 hover:text-blue-600 transition-colors whitespace-nowrap"
@@ -736,7 +736,13 @@ export function ReporteVencimientos() {
                                     </div>
                                   </div>
                                   <Button size="sm" variant="ghost" asChild className="h-7 w-7 p-0 text-blue-500">
-                                    <a href={e.htmlLink} target="_blank" rel="noopener noreferrer"><Eye className="h-3.5 w-3.5" /></a>
+                                    <a
+                                      href={`${e.htmlLink}${session?.user?.email ? `&authuser=${encodeURIComponent(session.user.email)}` : ''}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                    >
+                                      <Eye className="h-3.5 w-3.5" />
+                                    </a>
                                   </Button>
                                 </div>
                               ))}
@@ -893,7 +899,12 @@ export function ReporteVencimientos() {
                                 asChild
                                 className="h-6 w-6 p-0 text-blue-500 hover:bg-blue-100"
                               >
-                                <a href={event.htmlLink} target="_blank" rel="noopener noreferrer" title="Ver en Google Calendar">
+                                <a
+                                  href={`${event.htmlLink}${session?.user?.email ? `&authuser=${encodeURIComponent(session.user.email)}` : ''}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title="Ver en Google Calendar"
+                                >
                                   <Eye className="h-3 w-3" />
                                 </a>
                               </Button>
