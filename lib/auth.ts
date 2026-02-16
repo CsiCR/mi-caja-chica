@@ -6,6 +6,41 @@ import { PrismaAdapter } from '@next-auth/prisma-adapter';
 import { prisma } from './db';
 import bcrypt from 'bcryptjs';
 
+async function refreshAccessToken(token: any) {
+  try {
+    const url = "https://oauth2.googleapis.com/token";
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: process.env.GOOGLE_CLIENT_ID || "",
+        client_secret: process.env.GOOGLE_CLIENT_SECRET || "",
+        grant_type: "refresh_token",
+        refresh_token: token.refreshToken,
+      }),
+    });
+
+    const refreshedTokens = await response.json();
+
+    if (!response.ok) {
+      throw refreshedTokens;
+    }
+
+    return {
+      ...token,
+      accessToken: refreshedTokens.access_token,
+      expiresAt: Date.now() + refreshedTokens.expires_in * 1000,
+      refreshToken: refreshedTokens.refresh_token ?? token.refreshToken, // Google solo envía un nuevo refresh token si cambió
+    };
+  } catch (error) {
+    console.error("Error refreshing access token", error);
+    return {
+      ...token,
+      error: "RefreshAccessTokenError",
+    };
+  }
+}
+
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   session: {
@@ -21,7 +56,7 @@ export const authOptions: NextAuthOptions = {
       allowDangerousEmailAccountLinking: true,
       authorization: {
         params: {
-          scope: 'openid email profile https://www.googleapis.com/auth/calendar.events',
+          scope: 'openid email profile https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.readonly',
           access_type: 'offline',
           prompt: 'consent',
         },
@@ -67,22 +102,33 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async jwt({ token, user, account }: any) {
-      if (user) {
-        token.id = user.id;
+      // Inicio de sesión inicial
+      if (account && user) {
+        return {
+          id: user.id,
+          accessToken: account.access_token,
+          expiresAt: account.expires_at ? account.expires_at * 1000 : Date.now() + (account?.expires_in ?? 3600) * 1000,
+          refreshToken: account.refresh_token,
+          user,
+        };
       }
-      if (account) {
-        token.accessToken = account.access_token;
-        token.refreshToken = account.refresh_token;
+
+      // Retornar el token actual si no ha expirado aún
+      if (Date.now() < (token.expiresAt as number)) {
+        return token;
       }
-      return token;
+
+      // El token ha expirado, intentar refrescarlo
+      return refreshAccessToken(token);
     },
     async session({ session, token }: any) {
       if (token && session?.user) {
         session.user.id = token.id;
         session.accessToken = token.accessToken;
+        session.error = token.error;
       }
       return session;
     },
   },
-  debug: true,
+  debug: process.env.NODE_ENV === 'development',
 };

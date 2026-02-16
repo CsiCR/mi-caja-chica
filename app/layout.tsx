@@ -11,7 +11,6 @@ export const metadata: Metadata = {
   title: 'Mi Caja Chica - Gestión Financiera',
   description: 'Sistema de gestión financiera para emprendedores argentinos',
   manifest: '/manifest.json',
-  themeColor: '#16a34a',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
@@ -21,6 +20,10 @@ export const metadata: Metadata = {
     icon: '/app-icon.png',
     apple: '/app-icon.png',
   },
+};
+
+export const viewport = {
+  themeColor: '#16a34a',
 };
 
 export default function RootLayout({

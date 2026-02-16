@@ -148,7 +148,6 @@ export function TransaccionForm({ open, onClose, onSuccess, transaccion }: Trans
   };
 
   const handleVoiceData = async (localData: { description: string }) => {
-    console.log('🎤 handleVoiceData activado con:', localData);
     // Si viene del parser local (fallback), lo usamos por ahora como display
     // Pero aquí interceptamos para llamar a la API de Gemini
     try {
@@ -158,7 +157,6 @@ export function TransaccionForm({ open, onClose, onSuccess, transaccion }: Trans
         return;
       }
 
-      console.log('🚀 Iniciando petición a Gemini...');
       toast.loading('Procesando con IA...', { id: 'voice-process' });
 
       const response = await fetch('/api/voice/process', {
@@ -176,7 +174,6 @@ export function TransaccionForm({ open, onClose, onSuccess, transaccion }: Trans
         str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
       const aiData = await response.json();
-      console.log('🤖 Respuesta de IA:', aiData);
 
       // Usar datos de IA (Gemini)
       if (aiData.description) form.setValue('descripcion', aiData.description);
@@ -355,7 +352,7 @@ export function TransaccionForm({ open, onClose, onSuccess, transaccion }: Trans
               )}
             />
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="monto"
@@ -399,7 +396,7 @@ export function TransaccionForm({ open, onClose, onSuccess, transaccion }: Trans
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="tipo"
@@ -487,7 +484,7 @@ export function TransaccionForm({ open, onClose, onSuccess, transaccion }: Trans
               )}
             />
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="fecha"

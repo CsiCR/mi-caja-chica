@@ -4,6 +4,7 @@
 import { SessionProvider } from 'next-auth/react';
 import { ThemeProvider } from './theme-provider';
 import { AutoLogout } from './auth/auto-logout';
+import { GlobalNotificationHandler } from './notifications/global-notification-handler';
 import { ReactNode, useEffect, useState } from 'react';
 
 interface ProvidersProps {
@@ -43,6 +44,7 @@ export function Providers({ children }: ProvidersProps) {
         disableTransitionOnChange
       >
         <AutoLogout />
+        <GlobalNotificationHandler />
         {children}
       </ThemeProvider>
     </SessionProvider>

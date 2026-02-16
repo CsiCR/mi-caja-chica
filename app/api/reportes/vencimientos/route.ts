@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
@@ -26,13 +26,15 @@ export async function GET(request: NextRequest) {
     const periodosHaciaAdelante = parseInt(searchParams.get('periodos') || '12');
     const soloVencidas = searchParams.get('soloVencidas') === 'true';
 
+    const fechaBaseStr = searchParams.get('fechaBase');
+    const baseDate = fechaBaseStr ? new Date(fechaBaseStr) : new Date();
+
     const today = new Date();
-    const fechaInicio = soloVencidas ? new Date('2020-01-01') : today;
-    
-    // Calcular fecha límite hacia adelante
-    const fechaLimite = agrupacion === 'semana' 
-      ? addWeeks(today, periodosHaciaAdelante)
-      : addMonths(today, periodosHaciaAdelante);
+    // Siempre queremos ver desde el principio del mes base o desde hoy si es el mes actual
+    const fechaInicio = soloVencidas ? new Date('2020-01-01') : startOfMonth(baseDate);
+
+    // Calcular fecha límite hacia adelante (un mes desde el inicio del mes base para cubrir el calendario)
+    const fechaLimite = endOfMonth(baseDate);
 
     // Construir filtros
     const where: Prisma.TransaccionWhereInput = {
@@ -60,14 +62,16 @@ export async function GET(request: NextRequest) {
     });
 
     // Agrupar por períodos
-    const grupos: { [key: string]: {
-      periodo: string;
-      fechaInicio: Date;
-      fechaFin: Date;
-      transacciones: typeof transacciones;
-      totales: { ARS: { ingresos: number; egresos: number; neto: number }; USD: { ingresos: number; egresos: number; neto: number } };
-      vencido: boolean;
-    } } = {};
+    const grupos: {
+      [key: string]: {
+        periodo: string;
+        fechaInicio: Date;
+        fechaFin: Date;
+        transacciones: typeof transacciones;
+        totales: { ARS: { ingresos: number; egresos: number; neto: number }; USD: { ingresos: number; egresos: number; neto: number } };
+        vencido: boolean;
+      }
+    } = {};
 
     transacciones.forEach(transaccion => {
       if (!transaccion.fechaPlanificada) return;
@@ -79,8 +83,8 @@ export async function GET(request: NextRequest) {
       let nombrePeriodo: string;
 
       if (agrupacion === 'semana') {
-        fechaInicioPeriodo = startOfWeek(fecha, { weekStartsOn: 1 }); // Lunes
-        fechaFinPeriodo = endOfWeek(fecha, { weekStartsOn: 1 }); // Domingo
+        fechaInicioPeriodo = startOfWeek(fecha, { weekStartsOn: 0 }); // Domingo
+        fechaFinPeriodo = endOfWeek(fecha, { weekStartsOn: 0 }); // Sábado
         periodoKey = format(fechaInicioPeriodo, 'yyyy-ww');
         nombrePeriodo = `Semana del ${format(fechaInicioPeriodo, 'dd/MM', { locale: es })} al ${format(fechaFinPeriodo, 'dd/MM/yyyy', { locale: es })}`;
       } else {
@@ -109,15 +113,15 @@ export async function GET(request: NextRequest) {
       // Calcular totales
       const monto = Number(transaccion.monto);
       const monedaTransaccion = transaccion.moneda as 'ARS' | 'USD';
-      
+
       if (transaccion.tipo === 'INGRESO') {
         grupos[periodoKey].totales[monedaTransaccion].ingresos += monto;
       } else {
         grupos[periodoKey].totales[monedaTransaccion].egresos += monto;
       }
-      
-      grupos[periodoKey].totales[monedaTransaccion].neto = 
-        grupos[periodoKey].totales[monedaTransaccion].ingresos - 
+
+      grupos[periodoKey].totales[monedaTransaccion].neto =
+        grupos[periodoKey].totales[monedaTransaccion].ingresos -
         grupos[periodoKey].totales[monedaTransaccion].egresos;
     });
 

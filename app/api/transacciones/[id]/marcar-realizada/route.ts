@@ -12,7 +12,7 @@ export async function PATCH(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
@@ -31,8 +31,8 @@ export async function PATCH(
     });
 
     if (!transaccionExistente) {
-      return NextResponse.json({ 
-        error: 'Transacción no encontrada o ya fue marcada como realizada' 
+      return NextResponse.json({
+        error: 'Transacción no encontrada o ya fue marcada como realizada'
       }, { status: 404 });
     }
 
@@ -49,6 +49,23 @@ export async function PATCH(
         asientoContable: true,
       },
     });
+
+    // Sincronizar con Google Calendar si tenía un evento vinculado
+    if (transaccionExistente.googleEventId && (session as any).accessToken) {
+      try {
+        const { deleteGoogleCalendarEvent } = await import('@/lib/calendar');
+        await deleteGoogleCalendarEvent((session as any).accessToken, transaccionExistente.googleEventId);
+
+        // Limpiamos el ID del evento ya que ya no existe en Google
+        await prisma.transaccion.update({
+          where: { id },
+          data: { googleEventId: null }
+        });
+      } catch (calErr) {
+        console.error('Error al eliminar evento de Google Calendar:', calErr);
+        // No bloqueamos el proceso principal si falla la eliminación en Google
+      }
+    }
 
     return NextResponse.json({
       success: true,

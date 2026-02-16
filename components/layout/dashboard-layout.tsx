@@ -78,7 +78,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const router = useRouter();
 
   // Debug para verificar el estado
-  console.log('Sidebar open state:', sidebarOpen);
 
   const handleSignOut = async () => {
     await signOut({ redirect: false });
@@ -116,7 +115,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             size="sm"
             className="ml-auto hover:bg-gray-100"
             onClick={() => {
-              console.log('Closing sidebar');
               setSidebarOpen(false);
             }}
           >
@@ -158,7 +156,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                       : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
                   )}
                   onClick={() => {
-                    console.log('Navigation clicked, closing sidebar');
                     setSidebarOpen(false);
                   }}
                 >
@@ -219,7 +216,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             variant="outline"
             className="flex lg:hidden items-center justify-center h-10 w-10 border-2 border-green-500 bg-green-50 hover:bg-green-100 hover:border-green-600 transition-all duration-200 rounded-lg shadow-sm"
             onClick={() => {
-              console.log('Menu button clicked, opening sidebar');
               setSidebarOpen(true);
             }}
           >
@@ -228,15 +224,15 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </Button>
 
           {/* Mobile App Title */}
-          <div className="lg:hidden flex items-center gap-2">
+          <div className="lg:hidden flex items-center gap-1.5 min-w-0">
             <Image
               src="/app-icon.png"
               alt="Logo"
-              width={28}
-              height={28}
-              className="rounded-md shadow-sm border border-green-100"
+              width={24}
+              height={24}
+              className="rounded-md shadow-sm border border-green-100 shrink-0"
             />
-            <span className="text-lg font-bold text-gray-900 tracking-tight">Mi Caja Chica</span>
+            <span className="text-base font-bold text-gray-900 tracking-tight truncate">Mi Caja Chica</span>
           </div>
 
           {/* Spacer */}

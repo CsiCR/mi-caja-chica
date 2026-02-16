@@ -9,7 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Search, Edit, Trash2, FileText, Sparkles, CheckSquare, Square, CheckCircle, XCircle } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, FileText, Sparkles, CheckSquare, Square, CheckCircle, XCircle, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
 import { AsientoForm } from './asiento-form';
 import { AsientoDeleteDialog } from './asiento-delete-dialog';
 import { AsientosGenerateDialog } from './asientos-generate-dialog';
@@ -206,266 +209,324 @@ export function AsientosList() {
   };
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Asientos Contables
-              </CardTitle>
-              <CardDescription>
-                Crea y gestiona categorías contables para organizar tus transacciones
-              </CardDescription>
+    <div className="space-y-3">
+      {/* Cabecera y Controles en una sola fila */}
+      <div className="bg-white p-2.5 sm:p-3 rounded-xl border shadow-sm space-y-3">
+        <div className="flex items-center justify-between gap-3 px-1">
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
+              <FileText className="h-4 w-4 text-slate-600" />
             </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setShowGenerate(true)}
-                className="flex items-center gap-2 border-yellow-200 bg-yellow-50/50 hover:bg-yellow-50 text-yellow-700"
-              >
-                <Sparkles className="h-4 w-4" />
-                Auto-generar Plan
-              </Button>
-              <Button onClick={() => setShowForm(true)} className="flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                Nuevo Asiento
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {/* Filtros */}
-          <div className="flex flex-col gap-4 mb-6">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  placeholder="Buscar por código, nombre o descripción..."
-                  value={searchTerm}
-                  onChange={(e) => handleSearch(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <Select value={entidadFilter || 'all'} onValueChange={(value) => handleFilterChange('entidad', value)}>
-                <SelectTrigger className="w-full sm:w-[200px]">
-                  <SelectValue placeholder="Todas las Entidades" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas las Entidades</SelectItem>
-                  {entidades.map(e => (
-                    <SelectItem key={e.id} value={e.id}>{e.nombre}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={activoFilter || 'all'} onValueChange={(value) => handleFilterChange('activo', value)}>
-                <SelectTrigger className="w-full sm:w-[150px]">
-                  <SelectValue placeholder="Estado" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los Estados</SelectItem>
-                  <SelectItem value="true">Activos</SelectItem>
-                  <SelectItem value="false">Inactivos</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <Select value={claseFilter || 'all'} onValueChange={(value) => handleFilterChange('clase', value)}>
-                <SelectTrigger className="grow sm:w-[120px]">
-                  <SelectValue placeholder="Clase" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas las Clases</SelectItem>
-                  <SelectItem value="1">1 - Activo</SelectItem>
-                  <SelectItem value="2">2 - Pasivo</SelectItem>
-                  <SelectItem value="3">3 - Patrimonio</SelectItem>
-                  <SelectItem value="4">4 - Ingresos</SelectItem>
-                  <SelectItem value="5">5 - Gastos</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <div className="flex items-center gap-2 grow sm:w-[150px]">
-                <Input
-                  placeholder="Mayor (ej: 1.1)"
-                  value={mayorFilter}
-                  onChange={(e) => handleFilterChange('mayor', e.target.value)}
-                  className="h-10"
-                />
-              </div>
-
-              <div className="flex items-center gap-2 grow sm:w-[150px]">
-                <Input
-                  placeholder="Sub (ej: 1.1.01)"
-                  value={subcuentaFilter}
-                  onChange={(e) => handleFilterChange('subcuenta', e.target.value)}
-                  className="h-10"
-                />
-              </div>
-            </div>
+            <h2 className="text-lg font-bold text-slate-900 leading-tight">Asientos</h2>
           </div>
 
-          {/* Barra de Acciones Masivas */}
-          {selectedIds.length > 0 && (
-            <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mb-4 flex items-center justify-between animate-in fade-in slide-in-from-top-2">
-              <div className="flex items-center gap-3">
-                <CheckSquare className="h-5 w-5 text-primary" />
-                <span className="text-sm font-medium">
-                  {selectedIds.length} asientos seleccionados
-                </span>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleBulkAction(true)}
-                  disabled={bulkLoading}
-                  className="flex items-center gap-2 border-green-200 text-green-700 hover:bg-green-50"
-                >
-                  <CheckCircle className="h-4 w-4" />
-                  Activar
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleBulkAction(false)}
-                  disabled={bulkLoading}
-                  className="flex items-center gap-2 border-red-200 text-red-700 hover:bg-red-50"
-                >
-                  <XCircle className="h-4 w-4" />
-                  Desactivar
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedIds([])}
-                  disabled={bulkLoading}
-                >
-                  Cancelar
-                </Button>
-              </div>
-            </div>
-          )}
+          <div className="flex gap-1.5 sm:gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowGenerate(true)}
+              className="h-8 sm:h-9 px-2 sm:px-3 border-yellow-200 bg-yellow-50/50 hover:bg-yellow-50 text-yellow-700 gap-1.5"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">IA Plan</span>
+            </Button>
+            <Button onClick={() => setShowForm(true)} size="sm" className="h-8 sm:h-9 px-2 sm:px-3 gap-1.5">
+              <Plus className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Nuevo</span>
+            </Button>
+          </div>
+        </div>
 
-          {/* Tabla */}
-          {loading ? (
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-              <p className="mt-2 text-gray-500">Cargando asientos...</p>
-            </div>
-          ) : asientos.length === 0 ? (
-            <div className="text-center py-12">
-              <FileText className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-4 text-lg font-semibold text-gray-900">No hay asientos contables</h3>
-              <p className="mt-2 text-gray-500">
-                Crea tu primer asiento contable para categorizar tus transacciones.
-              </p>
-              <Button onClick={() => setShowForm(true)} className="mt-4">
-                <Plus className="h-4 w-4 mr-2" />
-                Crear primer asiento
+        <div className="flex items-center gap-2">
+          {/* Buscador */}
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-3.5 w-3.5" />
+            <Input
+              placeholder="Buscar código o nombre..."
+              value={searchTerm}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="pl-9 h-9 border-slate-200 bg-slate-50/50 focus:bg-white transition-colors text-sm"
+            />
+          </div>
+
+          {/* Filtro Avanzado */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="h-9 w-9 p-0 border-slate-200 shrink-0 relative bg-white">
+                <Filter className="h-4 w-4" />
+                {(activoFilter || entidadFilter || claseFilter || mayorFilter || subcuentaFilter) && (
+                  <span className="absolute -top-1 -right-1 h-2.5 w-2.5 bg-green-500 rounded-full border-2 border-white" />
+                )}
               </Button>
-            </div>
-          ) : (
-            <>
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[50px]">
-                        <Checkbox
-                          checked={asientos.length > 0 && selectedIds.length === asientos.length}
-                          onCheckedChange={(checked) => handleSelectAll(!!checked)}
-                        />
-                      </TableHead>
-                      <TableHead>Código</TableHead>
-                      <TableHead>Nombre</TableHead>
-                      <TableHead>Descripción</TableHead>
-                      <TableHead>Estado</TableHead>
-                      <TableHead>Fecha Creación</TableHead>
-                      <TableHead className="text-right">Acciones</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {asientos.map((asiento) => (
-                      <TableRow key={asiento.id} className={selectedIds.includes(asiento.id) ? 'bg-primary/5' : ''}>
-                        <TableCell>
-                          <Checkbox
-                            checked={selectedIds.includes(asiento.id)}
-                            onCheckedChange={(checked) => handleSelectOne(asiento.id, !!checked)}
-                          />
-                        </TableCell>
-                        <TableCell className="font-mono font-medium">{asiento.codigo}</TableCell>
-                        <TableCell className="font-medium">{asiento.nombre}</TableCell>
-                        <TableCell className="max-w-xs truncate">{asiento.descripcion || '-'}</TableCell>
-                        <TableCell>
-                          <Badge variant={asiento.activo ? 'default' : 'secondary'}>
-                            {asiento.activo ? 'Activo' : 'Inactivo'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {new Date(asiento.createdAt).toLocaleDateString('es-AR')}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleEdit(asiento)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDelete(asiento)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+            </PopoverTrigger>
+            <PopoverContent className="w-[300px] p-4 space-y-4" align="end">
+              <div className="space-y-4 max-h-[70vh] overflow-y-auto no-scrollbar pr-1">
+                <div className="space-y-2">
+                  <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Entidad</Label>
+                  <Select value={entidadFilter || 'all'} onValueChange={(value) => handleFilterChange('entidad', value)}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Todas las Entidades" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas las Entidades</SelectItem>
+                      {entidades.map(e => (
+                        <SelectItem key={e.id} value={e.id}>{e.nombre}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              {/* Paginación */}
-              {pagination.pages > 1 && (
-                <div className="flex items-center justify-between px-2">
-                  <div className="text-sm text-gray-500">
-                    Mostrando {((currentPage - 1) * pagination.limit) + 1} a{' '}
-                    {Math.min(currentPage * pagination.limit, pagination.total)} de {pagination.total} asientos
+                <div className="space-y-2">
+                  <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Clase</Label>
+                  <Select value={claseFilter || 'all'} onValueChange={(value) => handleFilterChange('clase', value)}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Todas las Clases" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas las Clases</SelectItem>
+                      <SelectItem value="1">1 - Activo</SelectItem>
+                      <SelectItem value="2">2 - Pasivo</SelectItem>
+                      <SelectItem value="3">3 - Patrimonio</SelectItem>
+                      <SelectItem value="4">4 - Ingresos</SelectItem>
+                      <SelectItem value="5">5 - Gastos</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Mayor</Label>
+                    <Input
+                      placeholder="ej: 1.1"
+                      value={mayorFilter}
+                      onChange={(e) => handleFilterChange('mayor', e.target.value)}
+                      className="h-8 text-xs"
+                    />
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                    >
-                      Anterior
-                    </Button>
-                    <span className="text-sm">
-                      Página {currentPage} de {pagination.pages}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(prev => Math.min(pagination.pages, prev + 1))}
-                      disabled={currentPage === pagination.pages}
-                    >
-                      Siguiente
-                    </Button>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Sub</Label>
+                    <Input
+                      placeholder="ej: 1.1.01"
+                      value={subcuentaFilter}
+                      onChange={(e) => handleFilterChange('subcuenta', e.target.value)}
+                      className="h-8 text-xs"
+                    />
                   </div>
                 </div>
-              )}
-            </>
-          )}
-        </CardContent>
-      </Card>
 
-      {/* Formulario de creación */}
+                <div className="space-y-2">
+                  <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Estado</Label>
+                  <Select value={activoFilter || 'all'} onValueChange={(value) => handleFilterChange('activo', value)}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Estado" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos los Estados</SelectItem>
+                      <SelectItem value="true">Activos</SelectItem>
+                      <SelectItem value="false">Inactivos</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {(activoFilter || entidadFilter || claseFilter || mayorFilter || subcuentaFilter) && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setActivoFilter('');
+                      setEntidadFilter('');
+                      setClaseFilter('');
+                      setMayorFilter('');
+                      setSubcuentaFilter('');
+                      setCurrentPage(1);
+                    }}
+                    className="w-full text-[10px] text-slate-500 hover:text-red-600 h-7"
+                  >
+                    Limpiar Filtros
+                  </Button>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
+      </div>
+
+      {/* Acciones Masivas (Sticky/Floating) */}
+      {selectedIds.length > 0 && (
+        <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 z-50 bg-slate-900 text-white rounded-full px-4 py-2 shadow-2xl flex items-center gap-3 border border-slate-700 animate-in fade-in zoom-in-95 fill-mode-both">
+          <span className="text-xs font-bold px-2 py-0.5 bg-primary rounded-full">{selectedIds.length}</span>
+          <div className="h-4 w-[1px] bg-slate-700" />
+          <div className="flex gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleBulkAction(true)}
+              disabled={bulkLoading}
+              className="h-8 w-8 p-0 hover:bg-slate-800 text-green-400"
+              title="Activar"
+            >
+              <CheckCircle className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleBulkAction(false)}
+              disabled={bulkLoading}
+              className="h-8 w-8 p-0 hover:bg-slate-800 text-red-400"
+              title="Desactivar"
+            >
+              <XCircle className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedIds([])}
+              disabled={bulkLoading}
+              className="h-8 w-8 p-0 hover:bg-slate-800 text-slate-400"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-white rounded-xl border shadow-sm flex flex-col overflow-hidden">
+        {/* Tabla */}
+        <div className="relative">
+          {loading ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+              <p className="mt-2 text-sm text-slate-500">Cargando...</p>
+            </div>
+          ) : asientos.length === 0 ? (
+            <div className="text-center py-16">
+              <FileText className="mx-auto h-12 w-12 text-slate-300" />
+              <h3 className="mt-4 text-lg font-semibold text-slate-900">Sin asientos</h3>
+              <p className="mt-2 text-sm text-slate-500 max-w-xs mx-auto">
+                No hay asientos para mostrar.
+              </p>
+              {!searchTerm && (
+                <Button onClick={() => setShowForm(true)} className="mt-6" variant="outline">
+                  Crear primer asiento
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="overflow-x-auto no-scrollbar">
+              <Table>
+                <TableHeader className="bg-slate-50/50">
+                  <TableRow className="hover:bg-transparent border-none">
+                    <TableHead className="w-[40px] px-3">
+                      <Checkbox
+                        checked={asientos.length > 0 && selectedIds.length === asientos.length}
+                        onCheckedChange={(checked) => handleSelectAll(!!checked)}
+                      />
+                    </TableHead>
+                    <TableHead className="w-[45%] text-[10px] font-bold text-slate-500 uppercase tracking-wider">Plan / Nombre</TableHead>
+                    <TableHead className="hidden md:table-cell w-[35%] text-[10px] font-bold text-slate-500 uppercase tracking-wider">Descripción</TableHead>
+                    <TableHead className="w-[10%] text-[10px] font-bold text-slate-500 uppercase tracking-wider text-center">Estado</TableHead>
+                    <TableHead className="w-[10%] text-right"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {asientos.map((asiento) => (
+                    <TableRow key={asiento.id} className={cn(
+                      "hover:bg-slate-50/50 transition-colors group border-slate-100",
+                      selectedIds.includes(asiento.id) && "bg-primary/5"
+                    )}>
+                      <TableCell className="px-3">
+                        <Checkbox
+                          checked={selectedIds.includes(asiento.id)}
+                          onCheckedChange={(checked) => handleSelectOne(asiento.id, !!checked)}
+                        />
+                      </TableCell>
+                      <TableCell className="py-3">
+                        <div className="flex flex-col">
+                          <span className="font-mono text-[10px] sm:text-[11px] text-slate-500 font-bold leading-none mb-1">
+                            {asiento.codigo}
+                          </span>
+                          <span className="font-bold text-slate-900 text-sm leading-tight truncate max-w-[150px] sm:max-w-none">
+                            {asiento.nombre}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell py-3">
+                        <p className="text-xs text-slate-500 truncate max-w-[250px]">{asiento.descripcion || '-'}</p>
+                      </TableCell>
+                      <TableCell className="text-center py-3">
+                        <div
+                          className={cn(
+                            "h-2 w-2 rounded-full mx-auto ring-4 ring-offset-0",
+                            asiento.activo
+                              ? "bg-green-500 ring-green-50"
+                              : "bg-slate-300 ring-slate-50"
+                          )}
+                          title={asiento.activo ? 'Activo' : 'Inactivo'}
+                        />
+                      </TableCell>
+                      <TableCell className="text-right py-3 pr-4">
+                        <div className="flex items-center justify-end gap-1 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-slate-400 hover:text-blue-600 hover:bg-blue-50"
+                            onClick={() => handleEdit(asiento)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                            onClick={() => handleDelete(asiento)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </div>
+
+        {/* Paginación Compacta */}
+        {!loading && asientos.length > 0 && (
+          <div className="px-4 py-3 border-t bg-slate-50/30 flex items-center justify-between">
+            <div className="text-[10px] sm:text-xs text-slate-500 font-medium">
+              <span className="hidden sm:inline">Mostrando </span>
+              <span className="text-slate-900">{((currentPage - 1) * pagination.limit) + 1}-{Math.min(currentPage * pagination.limit, pagination.total)}</span> de <span className="text-slate-900">{pagination.total}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 hover:bg-white border-transparent hover:border-slate-200 border"
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <div className="text-[11px] font-bold text-slate-700 bg-white border border-slate-200 h-8 px-3 flex items-center rounded-md shadow-sm">
+                {currentPage} / {pagination.pages}
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 hover:bg-white border-transparent hover:border-slate-200 border"
+                onClick={() => setCurrentPage(prev => Math.min(pagination.pages, prev + 1))}
+                disabled={currentPage === pagination.pages}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Overlays */}
       {showForm && (
         <AsientoForm
           open={showForm}
@@ -474,7 +535,6 @@ export function AsientosList() {
         />
       )}
 
-      {/* Formulario de edición */}
       {editingAsiento && (
         <AsientoForm
           open={!!editingAsiento}
@@ -484,7 +544,6 @@ export function AsientosList() {
         />
       )}
 
-      {/* Diálogo de generación con IA */}
       {showGenerate && (
         <AsientosGenerateDialog
           open={showGenerate}
@@ -493,7 +552,6 @@ export function AsientosList() {
         />
       )}
 
-      {/* Diálogo de eliminación */}
       {deletingAsiento && (
         <AsientoDeleteDialog
           open={!!deletingAsiento}
