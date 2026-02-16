@@ -32,10 +32,6 @@ export function Providers({ children }: ProvidersProps) {
     }
   }, []);
 
-  if (!mounted) {
-    return <>{children}</>;
-  }
-
   return (
     <SessionProvider>
       <ThemeProvider
@@ -45,8 +41,8 @@ export function Providers({ children }: ProvidersProps) {
         disableTransitionOnChange
       >
         <TooltipProvider delayDuration={300}>
+          {mounted && <GlobalNotificationHandler />}
           <AutoLogout />
-          <GlobalNotificationHandler />
           {children}
         </TooltipProvider>
       </ThemeProvider>
