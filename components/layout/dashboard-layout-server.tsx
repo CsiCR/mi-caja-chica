@@ -6,6 +6,7 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Menu } from 'lucide-react';
 import Image from 'next/image';
+import { NotificationBell } from '@/components/notifications/notification-bell';
 
 interface DashboardLayoutServerProps {
   children: ReactNode;
@@ -98,8 +99,11 @@ export function DashboardLayoutServer({ children, user }: DashboardLayoutServerP
 
           <div className="flex-1" />
 
-          <div className="text-sm text-gray-600">
-            {user?.firstName || user?.name || 'Usuario'}
+          <div className="flex items-center gap-4">
+            <NotificationBell />
+            <div className="text-sm text-slate-600 font-medium hidden sm:block border-l pl-4 border-slate-200">
+              {user?.firstName || user?.name || 'Usuario'}
+            </div>
           </div>
         </div>
 
