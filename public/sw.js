@@ -1,11 +1,14 @@
-const CACHE_NAME = 'mi-caja-chica-v1';
+const CACHE_NAME = 'mi-caja-chica-v2'; // Incrementamos versión
 const ASSETS_TO_CACHE = [
-    '/',
-    '/manifest.json',
     '/app-icon.png',
+    '/manifest.json'
 ];
 
+// No cacheamos '/' por defecto para evitar problemas con hashes de Next.js
+// en estrategias Cache-First.
+
 self.addEventListener('install', (event) => {
+    self.skipWaiting(); // Forzar activación
     event.waitUntil(
         caches.open(CACHE_NAME).then((cache) => {
             return cache.addAll(ASSETS_TO_CACHE);
@@ -28,6 +31,17 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+    // Estrategia Network-First para el HTML (navegación)
+    if (event.request.mode === 'navigate') {
+        event.respondWith(
+            fetch(event.request).catch(() => {
+                return caches.match('/');
+            })
+        );
+        return;
+    }
+
+    // Cache-First para el resto (iconos, manifest) que esté en el cache
     event.respondWith(
         caches.match(event.request).then((response) => {
             return response || fetch(event.request);
