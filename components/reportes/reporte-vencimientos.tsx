@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -88,6 +89,7 @@ interface VencimientosData {
 }
 
 export function ReporteVencimientos() {
+  const { data: session } = useSession();
   const [data, setData] = useState<VencimientosData | null>(null);
   const [loading, setLoading] = useState(false);
   const [entidades, setEntidades] = useState<Array<{ id: string; nombre: string }>>([]);
@@ -381,7 +383,7 @@ export function ReporteVencimientos() {
                 disabled={loadingCalendar}
               />
               <a
-                href={`https://calendar.google.com/calendar/u/0/r/month/${currentMonth.getFullYear()}/${currentMonth.getMonth() + 1}/1`}
+                href={`https://calendar.google.com/calendar/u/0/r/month/${currentMonth.getFullYear()}/${currentMonth.getMonth() + 1}/1${session?.user?.email ? `?authuser=${encodeURIComponent(session.user.email)}` : ''}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-[10px] sm:text-xs font-medium flex items-center gap-1 hover:text-blue-600 transition-colors whitespace-nowrap"
