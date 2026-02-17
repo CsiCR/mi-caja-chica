@@ -18,6 +18,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import toast from 'react-hot-toast';
+import { VoiceInput } from '@/components/ui/voice-input';
 
 const transaccionSchema = z.object({
   descripcion: z.string().min(1, 'La descripción es requerida'),
@@ -136,8 +137,8 @@ export function TransaccionLoteForm({ open, onClose, onSuccess }: TransaccionLot
           moneda: t.moneda,
           tipo: t.tipo,
           estado: 'PLANIFICADA',
-          fecha: t.fecha.toISOString(),
-          fechaPlanificada: t.fechaPlanificada.toISOString(),
+          fecha: new Date(new Date(t.fecha).setHours(12, 0, 0, 0)).toISOString(),
+          fechaPlanificada: new Date(new Date(t.fechaPlanificada).setHours(12, 0, 0, 0)).toISOString(),
           comentario: t.comentario || '',
           entidadId: t.entidadId,
           cuentaBancariaId: t.cuentaBancariaId,
@@ -257,6 +258,120 @@ export function TransaccionLoteForm({ open, onClose, onSuccess }: TransaccionLot
     }
   };
 
+  const handleVoiceData = async (localData: { description: string }) => {
+    try {
+      const textToProcess = localData.description || '';
+      if (!textToProcess) return;
+
+      toast.loading('Procesando entrada de voz...', { id: 'batch-voice-process' });
+
+      const response = await fetch('/api/voice/process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: textToProcess })
+      });
+
+      if (!response.ok) throw new Error('Error al procesar voz');
+
+      const aiData = await response.json();
+
+      // Función para parsear fecha evitando desfase UTC
+      const parseLocalDate = (dateStr: string | null) => {
+        if (!dateStr) return new Date();
+        const [y, m, d] = dateStr.split('-').map(Number);
+        if (isNaN(y) || isNaN(m) || isNaN(d)) return new Date();
+        return new Date(y, m - 1, d);
+      };
+
+      const voiceData = {
+        descripcion: aiData.description || textToProcess,
+        monto: aiData.amount?.toString() || '',
+        moneda: aiData.currency || 'ARS',
+        tipo: aiData.type || 'EGRESO',
+        fecha: new Date(),
+        fechaPlanificada: parseLocalDate(aiData.date),
+        comentario: '',
+        entidadId: '',
+        cuentaBancariaId: '',
+        asientoContableId: '',
+      };
+
+      // Intentar matchear entidades, cuentas y asientos (lógica similar a transaccion-form)
+      const normalizeString = (str: string) => str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
+      if (aiData.entityKeyword) {
+        const keyword = normalizeString(aiData.entityKeyword);
+        const match = entidades.find(e => {
+          const n = normalizeString(e.nombre);
+          return keyword === n || n.includes(keyword) || keyword.includes(n);
+        });
+        if (match) voiceData.entidadId = match.id;
+      }
+
+      if (aiData.bankKeyword) {
+        const keyword = normalizeString(aiData.bankKeyword);
+        const match = cuentas.find(c => {
+          const n = normalizeString(c.nombre);
+          const b = c.banco ? normalizeString(c.banco) : "";
+          const full = normalizeString(`${c.nombre} (${c.banco})`);
+          return keyword === n || keyword === b || keyword === full ||
+            n.includes(keyword) || (b && b.includes(keyword)) ||
+            keyword.includes(n) || (b && keyword.includes(b));
+        });
+        if (match) voiceData.cuentaBancariaId = match.id;
+      }
+
+      if (aiData.categoryKeyword) {
+        const keyword = normalizeString(aiData.categoryKeyword);
+        const match = asientos.find(a => {
+          const n = normalizeString(a.nombre);
+          const cod = a.codigo ? normalizeString(a.codigo) : "";
+          return keyword === n || keyword === cod ||
+            n.includes(keyword) || (cod && cod.includes(keyword)) ||
+            keyword.includes(n) || (cod && keyword.includes(cod));
+        });
+        if (match) voiceData.asientoContableId = match.id;
+      }
+
+      // Lógica para no dejar la primera transacción vacía y manejo de recurrencia
+      const currentTransactions = form.getValues('transacciones');
+      const firstIsEmpty = currentTransactions.length === 1 && !currentTransactions[0].descripcion && !currentTransactions[0].entidadId;
+
+      if (aiData.recurrence?.isRecurring) {
+        const { startMonth, endMonth, day } = aiData.recurrence;
+        const currentYear = new Date().getFullYear();
+        const transactionsToAdd = [];
+
+        for (let m = startMonth; m <= endMonth; m++) {
+          const date = new Date(new Date(currentYear, m - 1, day || 1).setHours(12, 0, 0, 0));
+          transactionsToAdd.push({
+            ...voiceData,
+            fechaPlanificada: date
+          });
+        }
+
+        if (firstIsEmpty) {
+          form.setValue('transacciones.0', transactionsToAdd[0]);
+          transactionsToAdd.slice(1).forEach(t => append(t));
+        } else {
+          transactionsToAdd.forEach(t => append(t));
+        }
+      } else {
+        if (firstIsEmpty) {
+          form.setValue('transacciones.0', voiceData);
+        } else {
+          append(voiceData);
+        }
+      }
+
+      toast.success(aiData.recurrence?.isRecurring ? `${aiData.recurrence.endMonth - aiData.recurrence.startMonth + 1} transacciones generadas` : 'Transacción agregada por voz', { id: 'batch-voice-process' });
+
+    } catch (e: any) {
+      console.error('Error en handleVoiceData Lote:', e);
+      toast.error('Error al procesar voz', { id: 'batch-voice-process' });
+    }
+  };
+
   const handleClose = () => {
     if (!loading) {
       form.reset({
@@ -266,6 +381,7 @@ export function TransaccionLoteForm({ open, onClose, onSuccess }: TransaccionLot
             monto: '',
             moneda: 'ARS',
             tipo: 'INGRESO',
+            fecha: new Date(),
             fechaPlanificada: new Date(),
             comentario: '',
             entidadId: '',
@@ -281,94 +397,89 @@ export function TransaccionLoteForm({ open, onClose, onSuccess }: TransaccionLot
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Carga por Lotes de Transacciones Planificadas</DialogTitle>
-          <DialogDescription className="space-y-1">
-            <div>Crea múltiples transacciones planificadas de una vez. Ideal para pagos recurrentes como servicios.</div>
+      <DialogContent className="sm:max-w-[800px] max-h-[95vh] overflow-y-auto p-4 sm:p-6">
+        <DialogHeader className="mb-2">
+          <DialogTitle className="text-xl sm:text-2xl">Carga por Lotes</DialogTitle>
+          <DialogDescription className="text-xs sm:text-sm space-y-1">
+            <div className="hidden sm:block">Crea múltiples transacciones planificadas de una vez. Ideal para pagos recurrentes.</div>
             <div className="text-blue-600 font-medium">
-              ✅ Fechas completamente editables • ✅ Autocompletado inteligente • ✅ Intervalos personalizables
+              ✅ Fechas editables • ✅ Autocompletado inteligente
             </div>
           </DialogDescription>
         </DialogHeader>
 
+        <div className="flex items-center justify-between bg-blue-50 p-2 sm:p-3 rounded-lg mb-4">
+          <span className="text-xs sm:text-sm text-blue-800 font-medium flex items-center gap-1 sm:gap-2">
+            🎙️ Agregar por voz
+          </span>
+          <VoiceInput onDataDetected={handleVoiceData} />
+        </div>
+
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
             {/* Configuración de Intervalo */}
-            <Card>
-              <CardContent className="p-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-                  <div>
-                    <Label htmlFor="intervalo-select">Intervalo común</Label>
+            <Card className="shadow-none border-secondary/20">
+              <CardContent className="p-3 sm:p-4">
+                <div className="grid grid-cols-2 gap-3 items-end">
+                  <div className="space-y-1">
+                    <Label htmlFor="intervalo-select" className="text-[10px] sm:text-xs">Intervalo</Label>
                     <Select value={intervaloDias.toString()} onValueChange={(value) => setIntervaloDias(parseInt(value))}>
-                      <SelectTrigger className="w-full">
+                      <SelectTrigger className="h-8 sm:h-10 text-xs">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="1">1 día</SelectItem>
-                        <SelectItem value="7">7 días (semanal)</SelectItem>
-                        <SelectItem value="15">15 días (quincenal)</SelectItem>
-                        <SelectItem value="30">30 días (mensual)</SelectItem>
-                        <SelectItem value="60">60 días (bimensual)</SelectItem>
-                        <SelectItem value="90">90 días (trimestral)</SelectItem>
-                        <SelectItem value="180">180 días (semestral)</SelectItem>
-                        <SelectItem value="365">365 días (anual)</SelectItem>
+                        <SelectItem value="7">7 d</SelectItem>
+                        <SelectItem value="15">15 d</SelectItem>
+                        <SelectItem value="30">30 d</SelectItem>
+                        <SelectItem value="60">60 d</SelectItem>
+                        <SelectItem value="365">1 año</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  <div>
-                    <Label htmlFor="intervalo-custom">O días personalizados</Label>
+                  <div className="space-y-1">
+                    <Label htmlFor="intervalo-custom" className="text-[10px] sm:text-xs">Días personalizados</Label>
                     <Input
                       id="intervalo-custom"
                       type="number"
-                      min="1"
-                      max="999"
+                      className="h-8 sm:h-10 text-xs"
                       value={intervaloDias}
                       onChange={(e) => setIntervaloDias(parseInt(e.target.value) || 30)}
-                      placeholder="Días"
                     />
-                  </div>
-                </div>
-                <div className="mt-3 p-3 bg-blue-50 rounded-lg">
-                  <div className="text-sm text-blue-800">
-                    <div className="font-medium">💡 Funcionalidad mejorada:</div>
-                    <div>• Al "Agregar otra transacción": +{intervaloDias} días con datos autocompletados</div>
-                    <div>• Todas las fechas son editables independientemente</div>
-                    <div>• Perfecto para servicios, alquileres, sueldos, etc.</div>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {fields.map((field, index) => (
-                <div key={field.id} className="border rounded-lg p-4 space-y-4">
+                <div key={field.id} className="border-2 border-secondary/10 rounded-lg p-3 sm:p-4 space-y-3 sm:space-y-4 bg-card/50">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-medium">
-                      Transacción {index + 1}
-                      {index > 0 && (
-                        <span className="text-sm text-green-600 ml-2 font-normal">
-                          (Datos autocompletados)
-                        </span>
-                      )}
+                    <h3 className="text-sm sm:text-lg font-semibold flex items-center gap-2">
+                      <span className="bg-primary text-primary-foreground w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-bold">
+                        {index + 1}
+                      </span>
+                      Transacción
                     </h3>
-                    <div className="flex gap-2">
+                    <div className="flex gap-1 sm:gap-2">
                       <Button
                         type="button"
-                        variant="outline"
-                        size="sm"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 sm:h-8 sm:w-8"
                         onClick={() => duplicateTransaction(index)}
-                        title="Duplicar esta transacción"
+                        title="Duplicar"
                       >
                         <Copy className="h-4 w-4" />
                       </Button>
                       {fields.length > 1 && (
                         <Button
                           type="button"
-                          variant="outline"
-                          size="sm"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 sm:h-8 sm:w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
                           onClick={() => remove(index)}
-                          title="Eliminar esta transacción"
+                          title="Eliminar"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -376,28 +487,28 @@ export function TransaccionLoteForm({ open, onClose, onSuccess }: TransaccionLot
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
                     <FormField
                       control={form.control}
                       name={`transacciones.${index}.entidadId`}
                       render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Entidad *</FormLabel>
+                        <FormItem className="space-y-1">
+                          <FormLabel className="text-[10px] sm:text-xs">Entidad *</FormLabel>
                           <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
-                              <SelectTrigger>
+                              <SelectTrigger className="h-8 sm:h-10 text-xs">
                                 <SelectValue placeholder="Entidad" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
                               {entidades.map((entidad) => (
-                                <SelectItem key={entidad.id} value={entidad.id}>
+                                <SelectItem key={entidad.id} value={entidad.id} className="text-xs">
                                   {entidad.nombre}
                                 </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
-                          <FormMessage />
+                          <FormMessage className="text-[10px]" />
                         </FormItem>
                       )}
                     />
@@ -406,23 +517,23 @@ export function TransaccionLoteForm({ open, onClose, onSuccess }: TransaccionLot
                       control={form.control}
                       name={`transacciones.${index}.cuentaBancariaId`}
                       render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Cuenta *</FormLabel>
+                        <FormItem className="space-y-1">
+                          <FormLabel className="text-[10px] sm:text-xs">Cuenta *</FormLabel>
                           <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
-                              <SelectTrigger>
+                              <SelectTrigger className="h-8 sm:h-10 text-xs">
                                 <SelectValue placeholder="Cuenta" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
                               {cuentas.map((cuenta) => (
-                                <SelectItem key={cuenta.id} value={cuenta.id}>
+                                <SelectItem key={cuenta.id} value={cuenta.id} className="text-xs">
                                   {cuenta.nombre}
                                 </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
-                          <FormMessage />
+                          <FormMessage className="text-[10px]" />
                         </FormItem>
                       )}
                     />
@@ -432,56 +543,55 @@ export function TransaccionLoteForm({ open, onClose, onSuccess }: TransaccionLot
                     control={form.control}
                     name={`transacciones.${index}.descripcion`}
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Descripción *</FormLabel>
+                      <FormItem className="space-y-1">
+                        <FormLabel className="text-[10px] sm:text-xs">Descripción *</FormLabel>
                         <FormControl>
-                          <Input placeholder="Descripción de la transacción" {...field} />
+                          <Input placeholder="Descripción" className="h-8 sm:h-10 text-xs" {...field} />
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="text-[10px]" />
                       </FormItem>
                     )}
                   />
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
                     <FormField
                       control={form.control}
                       name={`transacciones.${index}.monto`}
                       render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Monto *</FormLabel>
+                        <FormItem className="space-y-1">
+                          <FormLabel className="text-[10px] sm:text-xs">Monto *</FormLabel>
                           <FormControl>
                             <Input
                               type="number"
                               step="0.01"
-                              min="0.01"
                               placeholder="0.00"
+                              className="h-8 sm:h-10 text-xs"
                               {...field}
                             />
                           </FormControl>
-                          <FormMessage />
+                          <FormMessage className="text-[10px]" />
                         </FormItem>
                       )}
                     />
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-2">
                       <FormField
                         control={form.control}
                         name={`transacciones.${index}.moneda`}
                         render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Moneda *</FormLabel>
+                          <FormItem className="space-y-1">
+                            <FormLabel className="text-[10px] sm:text-xs">Moneda *</FormLabel>
                             <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Moneda" />
+                                <SelectTrigger className="h-8 sm:h-10 text-xs">
+                                  <SelectValue />
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="ARS">ARS</SelectItem>
-                                <SelectItem value="USD">USD</SelectItem>
+                                <SelectItem value="ARS" className="text-xs">ARS</SelectItem>
+                                <SelectItem value="USD" className="text-xs">USD</SelectItem>
                               </SelectContent>
                             </Select>
-                            <FormMessage />
                           </FormItem>
                         )}
                       />
@@ -490,97 +600,83 @@ export function TransaccionLoteForm({ open, onClose, onSuccess }: TransaccionLot
                         control={form.control}
                         name={`transacciones.${index}.tipo`}
                         render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Tipo *</FormLabel>
+                          <FormItem className="space-y-1">
+                            <FormLabel className="text-[10px] sm:text-xs">Tipo *</FormLabel>
                             <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Tipo" />
+                                <SelectTrigger className="h-8 sm:h-10 text-xs font-medium">
+                                  <SelectValue />
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="INGRESO">Ingreso</SelectItem>
-                                <SelectItem value="EGRESO">Egreso</SelectItem>
+                                <SelectItem value="INGRESO" className="text-xs font-medium text-green-600">Ingreso</SelectItem>
+                                <SelectItem value="EGRESO" className="text-xs font-medium text-red-600">Egreso</SelectItem>
                               </SelectContent>
                             </Select>
-                            <FormMessage />
                           </FormItem>
                         )}
                       />
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
                     <FormField
                       control={form.control}
                       name={`transacciones.${index}.asientoContableId`}
                       render={({ field }) => (
-                        <FormItem>
+                        <FormItem className="space-y-1">
                           <div className="flex items-center justify-between">
-                            <FormLabel>Asiento Contable *</FormLabel>
+                            <FormLabel className="text-[10px] sm:text-xs">Asiento *</FormLabel>
                             <Button
                               type="button"
                               variant="ghost"
                               size="sm"
                               onClick={() => handleSuggestAsiento(index)}
                               disabled={suggestingIndex === index}
-                              className="h-7 text-xs flex items-center gap-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              className="h-5 text-[9px] sm:text-[10px] text-blue-600 px-1"
                             >
-                              {suggestingIndex === index ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : (
-                                <Sparkles className="h-3 w-3" />
-                              )}
-                              Sugerir
+                              <Sparkles className="h-2.5 w-2.5 mr-0.5" />
+                              IA
                             </Button>
                           </div>
                           <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
-                              <SelectTrigger>
+                              <SelectTrigger className="h-8 sm:h-10 text-xs">
                                 <SelectValue placeholder="Asiento" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
                               {asientos.map((asiento) => (
-                                <SelectItem key={asiento.id} value={asiento.id}>
+                                <SelectItem key={asiento.id} value={asiento.id} className="text-[10px] sm:text-xs">
                                   {asiento.codigo} - {asiento.nombre}
                                 </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
-                          <FormMessage />
                         </FormItem>
                       )}
                     />
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-2">
                       <FormField
                         control={form.control}
                         name={`transacciones.${index}.fecha`}
                         render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="flex items-center gap-2">
-                              Fecha *
-                            </FormLabel>
+                          <FormItem className="space-y-1">
+                            <FormLabel className="text-[10px] sm:text-xs">Fecha</FormLabel>
                             <FormControl>
                               <Input
                                 type="date"
+                                className="h-8 sm:h-10 text-xs px-1 sm:px-2"
                                 value={field.value ? format(field.value, 'yyyy-MM-dd') : ''}
                                 onChange={(e) => {
-                                  const dateValue = e.target.value;
-                                  if (dateValue) {
-                                    const [y, m, d] = dateValue.split('-').map(Number);
-                                    const selectedDate = new Date(y, m - 1, d);
-                                    field.onChange(selectedDate);
-                                  } else {
-                                    field.onChange(null);
+                                  if (e.target.value) {
+                                    const [y, m, d] = e.target.value.split('-').map(Number);
+                                    field.onChange(new Date(y, m - 1, d));
                                   }
                                 }}
-                                max={format(new Date(), 'yyyy-MM-dd')}
-                                className="w-full"
                               />
                             </FormControl>
-                            <FormMessage />
                           </FormItem>
                         )}
                       />
@@ -589,88 +685,55 @@ export function TransaccionLoteForm({ open, onClose, onSuccess }: TransaccionLot
                         control={form.control}
                         name={`transacciones.${index}.fechaPlanificada`}
                         render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="flex items-center gap-2">
-                              Planificada *
-                            </FormLabel>
+                          <FormItem className="space-y-1">
+                            <FormLabel className="text-[10px] sm:text-xs">Planif.</FormLabel>
                             <FormControl>
                               <Input
                                 type="date"
+                                className="h-8 sm:h-10 text-xs px-1 sm:px-2"
                                 value={field.value ? format(field.value, 'yyyy-MM-dd') : ''}
                                 onChange={(e) => {
-                                  const dateValue = e.target.value;
-                                  if (dateValue) {
-                                    const [y, m, d] = dateValue.split('-').map(Number);
-                                    const selectedDate = new Date(y, m - 1, d);
-                                    const today = new Date();
-                                    today.setHours(0, 0, 0, 0);
-                                    if (selectedDate >= today) {
-                                      field.onChange(selectedDate);
-                                    }
-                                  } else {
-                                    field.onChange(null);
+                                  if (e.target.value) {
+                                    const [y, m, d] = e.target.value.split('-').map(Number);
+                                    field.onChange(new Date(y, m - 1, d));
                                   }
                                 }}
-                                min={format(new Date(), 'yyyy-MM-dd')}
-                                className="w-full"
                               />
                             </FormControl>
-                            <FormMessage />
                           </FormItem>
                         )}
                       />
                     </div>
                   </div>
-
-                  <FormField
-                    control={form.control}
-                    name={`transacciones.${index}.comentario`}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Comentario</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Información adicional..."
-                            className="resize-none"
-                            rows={2}
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
                 </div>
               ))}
             </div>
 
-            <div className="flex justify-center">
+            <div className="flex flex-col gap-3">
               <Button
                 type="button"
                 variant="outline"
                 onClick={addTransaccion}
-                className="flex items-center gap-2"
+                className="h-10 sm:h-12 border-dashed border-2 flex items-center justify-center gap-2 text-primary hover:bg-primary/5"
               >
                 <Plus className="h-4 w-4" />
-                Agregar otra transacción
-                {fields.length > 0 && (
-                  <span className="text-xs text-green-600">(con datos autocompletados)</span>
-                )}
+                <span className="text-xs sm:text-sm font-semibold">Agregar Manualmente</span>
+                <span className="text-[10px] opacity-70 hidden sm:inline">(con autocompletado)</span>
               </Button>
             </div>
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleClose} disabled={loading}>
+            <DialogFooter className="sticky bottom-0 bg-background pt-2 flex flex-col-reverse sm:flex-row gap-2">
+              <Button type="button" variant="outline" onClick={handleClose} disabled={loading} className="w-full sm:w-auto h-10">
                 Cancelar
               </Button>
-              <Button type="submit" disabled={loading} className="min-w-[180px]">
+              <Button type="submit" disabled={loading} className="w-full sm:w-[220px] h-10 font-bold">
                 {loading ? (
                   <div className="flex items-center gap-2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <Loader2 className="h-4 w-4 animate-spin" />
                     Guardando...
                   </div>
                 ) : (
-                  `Crear ${fields.length} transacción${fields.length > 1 ? 'es' : ''} planificada${fields.length > 1 ? 's' : ''}`
+                  `Crear ${fields.length} Transacción${fields.length > 1 ? 'es' : ''}`
                 )}
               </Button>
             </DialogFooter>

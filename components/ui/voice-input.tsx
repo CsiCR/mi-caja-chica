@@ -34,7 +34,8 @@ export function VoiceInput({ onDataDetected }: VoiceInputProps) {
             const recog = new SpeechRecognition();
             recog.continuous = false;
             recog.lang = 'es-AR';
-            recog.interimResults = false;
+            // CRÍTICO para iOS Safari: Sin interimResults=true, a menudo no se dispara onresult
+            recog.interimResults = true;
 
             recog.onstart = () => {
                 setIsListening(true);
@@ -47,18 +48,39 @@ export function VoiceInput({ onDataDetected }: VoiceInputProps) {
             recog.onerror = (event: any) => {
                 console.error('Error de voz:', event.error);
                 setIsListening(false);
+
                 if (event.error === 'not-allowed') {
-                    toast.error('Permiso de micrófono denegado.');
+                    if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+                        toast.error('El micrófono requiere una conexión segura (HTTPS).');
+                    } else {
+                        toast.error('Permiso de micrófono denegado. Revisa la configuración del sitio.');
+                    }
+                } else if (event.error === 'network') {
+                    toast.error('Error de red. Asegúrate de tener conexión a internet.');
+                } else if (event.error === 'service-not-allowed') {
+                    toast.error('Servicio de dictado no disponible. Verifica si Siri está activo.');
                 } else {
                     toast.error('Error al escuchar. Intenta de nuevo.');
                 }
             };
 
+            let finalTranscript = '';
             recog.onresult = (event: any) => {
-                const transcript = event.results[0][0].transcript;
-                console.log('Escuchado:', transcript);
-                toast.success(`" ${transcript} "`);
-                onDataDetected({ description: transcript });
+                let interimTranscript = '';
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        finalTranscript += event.results[i][0].transcript;
+                    } else {
+                        interimTranscript += event.results[i][0].transcript;
+                    }
+                }
+
+                if (finalTranscript) {
+                    console.log('Escuchado (Final):', finalTranscript);
+                    toast.success(`" ${finalTranscript} "`);
+                    onDataDetected({ description: finalTranscript });
+                    recog.stop(); // Detener después de obtener el resultado final
+                }
             };
 
             recog.start();
@@ -71,7 +93,11 @@ export function VoiceInput({ onDataDetected }: VoiceInputProps) {
 
     const toggleListening = () => {
         if (isListening && recognition) {
-            recognition.stop();
+            try {
+                recognition.stop();
+            } catch (err) {
+                console.error('Error al detener recognition:', err);
+            }
         } else {
             startListening();
         }

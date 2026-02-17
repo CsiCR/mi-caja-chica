@@ -96,6 +96,7 @@ export const authOptions: NextAuthOptions = {
           id: user.id,
           email: user.email,
           name: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+          firstName: user.firstName,
         } as any;
       }
     })
@@ -106,10 +107,11 @@ export const authOptions: NextAuthOptions = {
       if (account && user) {
         return {
           id: user.id,
+          name: user.name,
+          firstName: (user as any).firstName,
           accessToken: account.access_token,
           expiresAt: account.expires_at ? account.expires_at * 1000 : Date.now() + (account?.expires_in ?? 3600) * 1000,
           refreshToken: account.refresh_token,
-          user,
         };
       }
 
@@ -124,6 +126,8 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }: any) {
       if (token && session?.user) {
         session.user.id = token.id;
+        session.user.name = token.name;
+        session.user.firstName = token.firstName;
         session.accessToken = token.accessToken;
         session.error = token.error;
       }

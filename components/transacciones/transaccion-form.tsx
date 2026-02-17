@@ -114,8 +114,8 @@ export function TransaccionForm({ open, onClose, onSuccess, transaccion }: Trans
       const submitData = {
         ...data,
         monto: parseFloat(data.monto),
-        fecha: data.fecha.toISOString(),
-        fechaPlanificada: data.fechaPlanificada?.toISOString(),
+        fecha: new Date(new Date(data.fecha).setHours(12, 0, 0, 0)).toISOString(),
+        fechaPlanificada: data.fechaPlanificada ? new Date(new Date(data.fechaPlanificada).setHours(12, 0, 0, 0)).toISOString() : undefined,
       };
 
       const url = isEditing ? `/api/transacciones/${transaccion.id}` : '/api/transacciones';
@@ -190,27 +190,37 @@ export function TransaccionForm({ open, onClose, onSuccess, transaccion }: Trans
       // 1. Matcheo de Asiento Contable
       if (aiData.categoryKeyword) {
         const keyword = normalizeString(aiData.categoryKeyword);
-        const match = asientos.find(a =>
-          normalizeString(a.nombre).includes(keyword) ||
-          (a.codigo && normalizeString(a.codigo).includes(keyword))
-        );
+        const match = asientos.find(a => {
+          const n = normalizeString(a.nombre);
+          const cod = a.codigo ? normalizeString(a.codigo) : "";
+          return keyword === n || keyword === cod ||
+            n.includes(keyword) || (cod && cod.includes(keyword)) ||
+            keyword.includes(n) || (cod && keyword.includes(cod));
+        });
         if (match) form.setValue('asientoContableId', match.id);
       }
 
       // 2. Matcheo de Cuenta Bancaria (Bancos)
       if (aiData.bankKeyword) {
         const keyword = normalizeString(aiData.bankKeyword);
-        const match = cuentas.find(c =>
-          normalizeString(c.nombre).includes(keyword) ||
-          (c.banco && normalizeString(c.banco).includes(keyword))
-        );
+        const match = cuentas.find(c => {
+          const n = normalizeString(c.nombre);
+          const b = c.banco ? normalizeString(c.banco) : "";
+          const full = normalizeString(`${c.nombre} (${c.banco})`);
+          return keyword === n || keyword === b || keyword === full ||
+            n.includes(keyword) || b.includes(keyword) ||
+            keyword.includes(n) || (b && keyword.includes(b));
+        });
         if (match) form.setValue('cuentaBancariaId', match.id);
       }
 
       // 3. Matcheo de Entidad
       if (aiData.entityKeyword) {
         const keyword = normalizeString(aiData.entityKeyword);
-        const match = entidades.find(e => normalizeString(e.nombre).includes(keyword));
+        const match = entidades.find(e => {
+          const n = normalizeString(e.nombre);
+          return keyword === n || n.includes(keyword) || keyword.includes(n);
+        });
         if (match) form.setValue('entidadId', match.id);
       }
 
@@ -263,12 +273,12 @@ export function TransaccionForm({ open, onClose, onSuccess, transaccion }: Trans
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>
+      <DialogContent className="sm:max-w-[550px] max-h-[92vh] overflow-y-auto p-4 sm:p-6">
+        <DialogHeader className="mb-2 sm:mb-4">
+          <DialogTitle className="text-xl sm:text-2xl">
             {isEditing ? 'Editar Transacción' : 'Nueva Transacción'}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs sm:text-sm">
             {isEditing
               ? 'Modifica los datos de la transacción seleccionada.'
               : 'Registra una nueva transacción financiera.'
@@ -276,38 +286,38 @@ export function TransaccionForm({ open, onClose, onSuccess, transaccion }: Trans
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex items-center justify-between bg-secondary/20 p-3 rounded-lg mb-4">
-          <span className="text-sm text-muted-foreground font-medium flex items-center gap-2">
+        <div className="flex items-center justify-between bg-secondary/20 p-2 sm:p-3 rounded-lg mb-3 sm:mb-4">
+          <span className="text-xs sm:text-sm text-muted-foreground font-medium flex items-center gap-1 sm:gap-2">
             🎙️ Carga rápida por voz
           </span>
           <VoiceInput onDataDetected={handleVoiceData} />
         </div>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3 sm:space-y-4">
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <FormField
                 control={form.control}
                 name="entidadId"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Entidad *</FormLabel>
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-xs sm:text-sm">Entidad *</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
-                        <SelectTrigger autoFocus>
+                        <SelectTrigger autoFocus className="h-9 sm:h-10 text-xs sm:text-sm">
                           <SelectValue placeholder="Selecciona entidad" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
                         {entidades.map((entidad) => (
-                          <SelectItem key={entidad.id} value={entidad.id}>
+                          <SelectItem key={entidad.id} value={entidad.id} className="text-xs sm:text-sm">
                             {entidad.nombre}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    <FormMessage />
+                    <FormMessage className="text-[10px] sm:text-xs" />
                   </FormItem>
                 )}
               />
@@ -316,23 +326,23 @@ export function TransaccionForm({ open, onClose, onSuccess, transaccion }: Trans
                 control={form.control}
                 name="cuentaBancariaId"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Cuenta Bancaria *</FormLabel>
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-xs sm:text-sm">Cuenta Bancaria *</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger className="h-9 sm:h-10 text-xs sm:text-sm">
                           <SelectValue placeholder="Selecciona cuenta" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
                         {cuentas.map((cuenta) => (
-                          <SelectItem key={cuenta.id} value={cuenta.id}>
+                          <SelectItem key={cuenta.id} value={cuenta.id} className="text-xs sm:text-sm">
                             {cuenta.nombre} - {cuenta.banco}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    <FormMessage />
+                    <FormMessage className="text-[10px] sm:text-xs" />
                   </FormItem>
                 )}
               />
@@ -342,33 +352,38 @@ export function TransaccionForm({ open, onClose, onSuccess, transaccion }: Trans
               control={form.control}
               name="descripcion"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Descripción *</FormLabel>
+                <FormItem className="space-y-1">
+                  <FormLabel className="text-xs sm:text-sm">Descripción *</FormLabel>
                   <FormControl>
-                    <Input placeholder="Ej: Venta de producto, Pago de servicios..." {...field} />
+                    <Input
+                      placeholder="Ej: Venta de producto, Pago de servicios..."
+                      className="h-9 sm:h-10 text-xs sm:text-sm"
+                      {...field}
+                    />
                   </FormControl>
-                  <FormMessage />
+                  <FormMessage className="text-[10px] sm:text-xs" />
                 </FormItem>
               )}
             />
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
               <FormField
                 control={form.control}
                 name="monto"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Monto *</FormLabel>
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-xs sm:text-sm">Monto *</FormLabel>
                     <FormControl>
                       <Input
                         type="number"
                         step="0.01"
                         min="0.01"
                         placeholder="0.00"
+                        className="h-9 sm:h-10 text-xs sm:text-sm"
                         {...field}
                       />
                     </FormControl>
-                    <FormMessage />
+                    <FormMessage className="text-[10px] sm:text-xs" />
                   </FormItem>
                 )}
               />
@@ -377,44 +392,44 @@ export function TransaccionForm({ open, onClose, onSuccess, transaccion }: Trans
                 control={form.control}
                 name="moneda"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Moneda *</FormLabel>
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-xs sm:text-sm">Moneda *</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecciona moneda" />
+                        <SelectTrigger className="h-9 sm:h-10 text-xs sm:text-sm">
+                          <SelectValue placeholder="Moneda" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="ARS">Pesos (ARS)</SelectItem>
-                        <SelectItem value="USD">Dólares (USD)</SelectItem>
+                        <SelectItem value="ARS" className="text-xs sm:text-sm">ARS</SelectItem>
+                        <SelectItem value="USD" className="text-xs sm:text-sm">USD</SelectItem>
                       </SelectContent>
                     </Select>
-                    <FormMessage />
+                    <FormMessage className="text-[10px] sm:text-xs" />
                   </FormItem>
                 )}
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
               <FormField
                 control={form.control}
                 name="tipo"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tipo de Transacción *</FormLabel>
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-xs sm:text-sm">Tipo *</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecciona tipo" />
+                        <SelectTrigger className="h-9 sm:h-10 text-xs sm:text-sm">
+                          <SelectValue placeholder="Tipo" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="INGRESO">Ingreso</SelectItem>
-                        <SelectItem value="EGRESO">Egreso</SelectItem>
+                        <SelectItem value="INGRESO" className="text-xs sm:text-sm">Ingreso</SelectItem>
+                        <SelectItem value="EGRESO" className="text-xs sm:text-sm">Egreso</SelectItem>
                       </SelectContent>
                     </Select>
-                    <FormMessage />
+                    <FormMessage className="text-[10px] sm:text-xs" />
                   </FormItem>
                 )}
               />
@@ -423,20 +438,20 @@ export function TransaccionForm({ open, onClose, onSuccess, transaccion }: Trans
                 control={form.control}
                 name="estado"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Estado *</FormLabel>
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-xs sm:text-sm">Estado *</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecciona estado" />
+                        <SelectTrigger className="h-9 sm:h-10 text-xs sm:text-sm">
+                          <SelectValue placeholder="Estado" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="REAL">Real</SelectItem>
-                        <SelectItem value="PLANIFICADA">Planificada</SelectItem>
+                        <SelectItem value="REAL" className="text-xs sm:text-sm">Real</SelectItem>
+                        <SelectItem value="PLANIFICADA" className="text-xs sm:text-sm">Planif.</SelectItem>
                       </SelectContent>
                     </Select>
-                    <FormMessage />
+                    <FormMessage className="text-[10px] sm:text-xs" />
                   </FormItem>
                 )}
               />
@@ -446,16 +461,16 @@ export function TransaccionForm({ open, onClose, onSuccess, transaccion }: Trans
               control={form.control}
               name="asientoContableId"
               render={({ field }) => (
-                <FormItem>
+                <FormItem className="space-y-1">
                   <div className="flex items-center justify-between">
-                    <FormLabel>Asiento Contable *</FormLabel>
+                    <FormLabel className="text-xs sm:text-sm">Asiento Contable *</FormLabel>
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
                       onClick={handleSuggestAsiento}
                       disabled={suggesting}
-                      className="h-7 text-xs flex items-center gap-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                      className="h-6 sm:h-7 text-[10px] sm:text-xs flex items-center gap-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-1 sm:px-2"
                     >
                       {suggesting ? (
                         <Loader2 className="h-3 w-3 animate-spin" />
@@ -467,30 +482,30 @@ export function TransaccionForm({ open, onClose, onSuccess, transaccion }: Trans
                   </div>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className="h-9 sm:h-10 text-xs sm:text-sm">
                         <SelectValue placeholder="Selecciona asiento" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       {asientos.map((asiento) => (
-                        <SelectItem key={asiento.id} value={asiento.id}>
+                        <SelectItem key={asiento.id} value={asiento.id} className="text-xs sm:text-sm">
                           {asiento.codigo} - {asiento.nombre}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  <FormMessage />
+                  <FormMessage className="text-[10px] sm:text-xs" />
                 </FormItem>
               )}
             />
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className={`grid grid-cols-1 ${estado === 'PLANIFICADA' ? 'sm:grid-cols-2' : ''} gap-3 sm:gap-4`}>
               <FormField
                 control={form.control}
                 name="fecha"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="flex items-center gap-2">
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-xs sm:text-sm flex items-center gap-2">
                       Fecha de Transacción *
                     </FormLabel>
                     <FormControl>
@@ -508,10 +523,10 @@ export function TransaccionForm({ open, onClose, onSuccess, transaccion }: Trans
                           }
                         }}
                         max={format(new Date(), 'yyyy-MM-dd')}
-                        className="w-full"
+                        className="w-full h-9 sm:h-10 text-xs sm:text-sm"
                       />
                     </FormControl>
-                    <FormMessage />
+                    <FormMessage className="text-[10px] sm:text-xs" />
                   </FormItem>
                 )}
               />
@@ -521,8 +536,8 @@ export function TransaccionForm({ open, onClose, onSuccess, transaccion }: Trans
                   control={form.control}
                   name="fechaPlanificada"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="flex items-center gap-2">
+                    <FormItem className="space-y-1">
+                      <FormLabel className="text-xs sm:text-sm flex items-center gap-2">
                         Fecha Planificada
                       </FormLabel>
                       <FormControl>
@@ -544,10 +559,10 @@ export function TransaccionForm({ open, onClose, onSuccess, transaccion }: Trans
                             }
                           }}
                           min={format(new Date(), 'yyyy-MM-dd')}
-                          className="w-full"
+                          className="w-full h-9 sm:h-10 text-xs sm:text-sm"
                         />
                       </FormControl>
-                      <FormMessage />
+                      <FormMessage className="text-[10px] sm:text-xs" />
                     </FormItem>
                   )}
                 />
@@ -558,26 +573,26 @@ export function TransaccionForm({ open, onClose, onSuccess, transaccion }: Trans
               control={form.control}
               name="comentario"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Comentario</FormLabel>
+                <FormItem className="space-y-1">
+                  <FormLabel className="text-xs sm:text-sm">Comentario</FormLabel>
                   <FormControl>
                     <Textarea
                       placeholder="Información adicional sobre la transacción..."
-                      className="resize-none"
-                      rows={2}
+                      className="resize-none text-xs sm:text-sm"
+                      rows={1}
                       {...field}
                     />
                   </FormControl>
-                  <FormMessage />
+                  <FormMessage className="text-[10px] sm:text-xs" />
                 </FormItem>
               )}
             />
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleClose}>
+            <DialogFooter className="mt-4 sm:mt-6 flex flex-col-reverse sm:flex-row gap-2 sm:gap-0">
+              <Button type="button" variant="outline" onClick={handleClose} className="h-9 sm:h-10 text-xs sm:text-sm w-full sm:w-auto">
                 Cancelar
               </Button>
-              <Button type="submit" disabled={loading}>
+              <Button type="submit" disabled={loading} className="h-9 sm:h-10 text-xs sm:text-sm w-full sm:w-auto">
                 {loading
                   ? (isEditing ? 'Actualizando...' : 'Creando...')
                   : (isEditing ? 'Actualizar' : 'Crear')

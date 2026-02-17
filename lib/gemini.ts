@@ -31,14 +31,19 @@ IMPORTANTE: Prioriza los siguientes nombres si el usuario los menciona:
 - ASIENTOS CONTABLES: ${context.seats.join(', ')}
 
 Reglas de Oro:
-1. 'description': Pon aquí el texto residual informativo (detalles extra, motivo específico). ELIMINA del texto el monto, la moneda, el banco y la entidad mencionada. Si no queda nada relevante, deja una descripción breve del gasto.
-2. 'entityKeyword': Usa el nombre EXACTO de la lista ENTIDADES si coincide.
-3. 'bankKeyword': Usa el nombre EXACTO de CUENTAS BANCARIAS si coincide.
-4. 'categoryKeyword': Usa el nombre EXACTO de ASIENTOS CONTABLES si coincide.
-5. 'amount', 'currency', 'type', 'date' (Hoy es ${new Date().toISOString().split('T')[0]}).
-6. Retorna SOLO JSON.
+1. 'description': Pon aquí el texto residual informativo. ELIMINA monto, moneda, banco y entidad.
+2. 'entityKeyword', 'bankKeyword', 'categoryKeyword': Usa nombres EXACTOS de la lista si coinciden.
+3. 'amount', 'currency', 'type', 'date' (Hoy es ${new Date().toISOString().split('T')[0]}).
+4. RECURRENCIA: Si el usuario menciona un periodo (ej: "de marzo a diciembre", "todos los meses"), incluye un objeto 'recurrence':
+   { "isRecurring": true, "startMonth": 1-12, "endMonth": 1-12, "day": 1-31, "frequency": "monthly" }
+5. Retorna SOLO JSON.
 
-Ejemplo: "500 verdes de Orange al nacion por servicios de marketing" -> { "amount": 500, "currency": "USD", "entityKeyword": "Orange", "bankKeyword": "Banco Nación", "description": "Servicios de marketing", "type": "INGRESO" }
+Ejemplo Recurrente: "de enero a octubre los dias 10 pago 20 mil de luz al edenor con galicia" -> 
+{ 
+  "amount": 20000, "currency": "ARS", "entityKeyword": "Edenor", "bankKeyword": "Banco Galicia", 
+  "description": "Pago de luz", "type": "EGRESO",
+  "recurrence": { "isRecurring": true, "startMonth": 1, "endMonth": 10, "day": 10, "frequency": "monthly" }
+}
 `;
 
 const generatePlanPrompt = (tipoActividad: string) => `

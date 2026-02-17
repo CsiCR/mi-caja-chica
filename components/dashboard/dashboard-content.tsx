@@ -18,7 +18,7 @@ export function DashboardContent() {
         {/* Encabezado de bienvenida */}
         <div className="bg-gradient-to-r from-green-600 to-blue-600 rounded-lg p-6 text-white">
           <h1 className="text-3xl font-bold mb-2">
-            ¡Bienvenido, {session?.user?.firstName || session?.user?.name}!
+            ¡Bienvenido{session?.user?.firstName || session?.user?.name ? `, ${session.user.firstName || session.user.name}` : ''}!
           </h1>
           <p className="text-green-100">
             Aquí tienes un resumen de tus finanzas y emprendimientos
