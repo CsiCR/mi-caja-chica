@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '25');
     const export_format = searchParams.get('export') || '';
+    const modo = searchParams.get('modo') || 'LISTA'; // LISTA o MAYOR
 
     const where: Prisma.TransaccionWhereInput = {
       userId: session.user.id,
@@ -66,31 +67,36 @@ export async function GET(request: NextRequest) {
 
     // Determinar ordenamiento
     let orderBy: Prisma.TransaccionOrderByWithRelationInput = { fecha: 'desc' };
-    
-    switch (sortBy) {
-      case 'descripcion':
-        orderBy = { descripcion: sortOrder as any };
-        break;
-      case 'monto':
-        orderBy = { monto: sortOrder as any };
-        break;
-      case 'entidad':
-        orderBy = { entidad: { nombre: sortOrder as any } };
-        break;
-      case 'cuenta':
-        orderBy = { cuentaBancaria: { nombre: sortOrder as any } };
-        break;
-      case 'asiento':
-        orderBy = { asientoContable: { codigo: sortOrder as any } };
-        break;
-      case 'tipo':
-        orderBy = { tipo: sortOrder as any };
-        break;
-      case 'estado':
-        orderBy = { estado: sortOrder as any };
-        break;
-      default:
-        orderBy = { fecha: sortOrder as any };
+
+    if (modo === 'MAYOR') {
+      // En modo Mayor, siempre ordenar por cuenta y luego por fecha ascendente para el rastro de saldos
+      orderBy = { fecha: 'asc' };
+    } else {
+      switch (sortBy) {
+        case 'descripcion':
+          orderBy = { descripcion: sortOrder as any };
+          break;
+        case 'monto':
+          orderBy = { monto: sortOrder as any };
+          break;
+        case 'entidad':
+          orderBy = { entidad: { nombre: sortOrder as any } };
+          break;
+        case 'cuenta':
+          orderBy = { cuentaBancaria: { nombre: sortOrder as any } };
+          break;
+        case 'asiento':
+          orderBy = { asientoContable: { codigo: sortOrder as any } };
+          break;
+        case 'tipo':
+          orderBy = { tipo: sortOrder as any };
+          break;
+        case 'estado':
+          orderBy = { estado: sortOrder as any };
+          break;
+        default:
+          orderBy = { fecha: sortOrder as any };
+      }
     }
 
     if (export_format === 'csv') {
@@ -148,6 +154,34 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // Si es modo MAYOR, necesitamos calcular saldos iniciales por cuenta independientemente de la paginación
+    let saldosIniciales: Record<string, number> = {};
+    if (modo === 'MAYOR' && fechaDesde) {
+      const cuentasAfectadas = await prisma.cuentaBancaria.findMany({
+        where: { userId: session.user.id },
+        select: { id: true }
+      });
+
+      for (const cuenta of cuentasAfectadas) {
+        const result = await prisma.transaccion.groupBy({
+          by: ['tipo'],
+          where: {
+            userId: session.user.id,
+            cuentaBancariaId: cuenta.id,
+            fecha: { lt: new Date(fechaDesde) },
+            estado: 'REAL' // Solo transacciones reales afectan al saldo contable inicial
+          },
+          _sum: {
+            monto: true
+          }
+        });
+
+        const ingresos = Number(result.find(r => r.tipo === 'INGRESO')?._sum.monto || 0);
+        const egresos = Number(result.find(r => r.tipo === 'EGRESO')?._sum.monto || 0);
+        saldosIniciales[cuenta.id] = ingresos - egresos;
+      }
+    }
+
     const [transacciones, total, resumen] = await Promise.all([
       prisma.transaccion.findMany({
         where,
@@ -157,8 +191,8 @@ export async function GET(request: NextRequest) {
           asientoContable: true,
         },
         orderBy,
-        skip: (page - 1) * limit,
-        take: limit,
+        skip: modo === 'MAYOR' ? undefined : (page - 1) * limit, // En modo mayor mandamos todo o paginamos por cuenta?
+        take: modo === 'MAYOR' ? 1000 : limit, // Limitamos a 1000 para no romper memoria si es mayor, idealmente debería paginar por cuenta
       }),
       prisma.transaccion.count({ where }),
       // Calcular resumen
@@ -184,6 +218,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       transacciones,
+      saldosIniciales,
       pagination: {
         page,
         limit,
@@ -209,6 +244,7 @@ export async function GET(request: NextRequest) {
         montoHasta,
         sortBy,
         sortOrder,
+        modo,
       },
     });
   } catch (error) {

@@ -42,8 +42,13 @@ export async function GET(request: NextRequest) {
     const moneda = searchParams.get('moneda') || '';
     const entidadId = searchParams.get('entidadId') || '';
     const cuentaBancariaId = searchParams.get('cuentaBancariaId') || '';
+    const asientoContableId = searchParams.get('asientoContableId') || '';
     const fechaDesde = searchParams.get('fechaDesde');
     const fechaHasta = searchParams.get('fechaHasta');
+    const montoDesde = searchParams.get('montoDesde');
+    const montoHasta = searchParams.get('montoHasta');
+    const sortBy = searchParams.get('sortBy') || 'fecha';
+    const sortOrder = searchParams.get('sortOrder') || 'desc';
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
 
@@ -53,6 +58,9 @@ export async function GET(request: NextRequest) {
         OR: [
           { descripcion: { contains: search, mode: Prisma.QueryMode.insensitive } },
           { comentario: { contains: search, mode: Prisma.QueryMode.insensitive } },
+          { entidad: { nombre: { contains: search, mode: Prisma.QueryMode.insensitive } } },
+          { cuentaBancaria: { nombre: { contains: search, mode: Prisma.QueryMode.insensitive } } },
+          { asientoContable: { nombre: { contains: search, mode: Prisma.QueryMode.insensitive } } },
         ],
       }),
       ...(tipo && { tipo: tipo as any }),
@@ -60,13 +68,49 @@ export async function GET(request: NextRequest) {
       ...(moneda && { moneda: moneda as any }),
       ...(entidadId && { entidadId }),
       ...(cuentaBancariaId && { cuentaBancariaId }),
+      ...(asientoContableId && { asientoContableId }),
       ...(fechaDesde && fechaHasta && {
         fecha: {
           gte: new Date(fechaDesde),
           lte: new Date(fechaHasta),
         },
       }),
+      ...(montoDesde && montoHasta && {
+        monto: {
+          gte: parseFloat(montoDesde),
+          lte: parseFloat(montoHasta),
+        },
+      }),
     };
+
+    // Determinar ordenamiento
+    let orderBy: Prisma.TransaccionOrderByWithRelationInput = { fecha: 'desc' };
+
+    switch (sortBy) {
+      case 'descripcion':
+        orderBy = { descripcion: sortOrder as any };
+        break;
+      case 'monto':
+        orderBy = { monto: sortOrder as any };
+        break;
+      case 'entidad':
+        orderBy = { entidad: { nombre: sortOrder as any } };
+        break;
+      case 'cuenta':
+        orderBy = { cuentaBancaria: { nombre: sortOrder as any } };
+        break;
+      case 'asiento':
+        orderBy = { asientoContable: { codigo: sortOrder as any } };
+        break;
+      case 'tipo':
+        orderBy = { tipo: sortOrder as any };
+        break;
+      case 'estado':
+        orderBy = { estado: sortOrder as any };
+        break;
+      default:
+        orderBy = { fecha: sortOrder as any };
+    }
 
     const [transacciones, total] = await Promise.all([
       prisma.transaccion.findMany({
@@ -76,7 +120,7 @@ export async function GET(request: NextRequest) {
           cuentaBancaria: true,
           asientoContable: true,
         },
-        orderBy: { fecha: 'desc' },
+        orderBy,
         skip: (page - 1) * limit,
         take: limit,
       }),
@@ -130,30 +174,62 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Algunas referencias no son válidas' }, { status: 400 });
       }
 
-      const transacciones = await prisma.transaccion.createMany({
-        data: validatedData.transacciones.map(t => {
+      const createdTransactions = await prisma.$transaction(
+        validatedData.transacciones.map(t => {
           const fechaToUse = t.estado === 'PLANIFICADA'
             ? (t.fechaPlanificada || new Date())
             : (t.fecha || new Date());
 
-          return {
-            descripcion: t.descripcion,
-            monto: t.monto,
-            moneda: t.moneda,
-            tipo: t.tipo,
-            estado: t.estado,
-            fecha: fechaToUse,
-            fechaPlanificada: t.estado === 'PLANIFICADA' ? (t.fechaPlanificada || fechaToUse) : null,
-            comentario: t.comentario || null,
-            entidadId: t.entidadId,
-            cuentaBancariaId: t.cuentaBancariaId,
-            asientoContableId: t.asientoContableId,
-            userId: session.user.id,
-          };
-        }),
-      });
+          return prisma.transaccion.create({
+            data: {
+              descripcion: t.descripcion,
+              monto: t.monto,
+              moneda: t.moneda,
+              tipo: t.tipo,
+              estado: t.estado,
+              fecha: fechaToUse,
+              fechaPlanificada: t.estado === 'PLANIFICADA' ? (t.fechaPlanificada || fechaToUse) : null,
+              comentario: t.comentario || null,
+              entidadId: t.entidadId,
+              cuentaBancariaId: t.cuentaBancariaId,
+              asientoContableId: t.asientoContableId,
+              userId: session.user.id,
+            },
+          });
+        })
+      );
 
-      return NextResponse.json({ message: `${validatedData.transacciones.length} transacciones creadas correctamente` }, { status: 201 });
+      // Sincronizar con Google Calendar si hay token
+      if ((session as any).accessToken) {
+        for (const transaccion of createdTransactions) {
+          if (transaccion.estado === 'PLANIFICADA') {
+            try {
+              const googleEventId = await createGoogleCalendarEvent((session as any).accessToken, {
+                descripcion: transaccion.descripcion,
+                monto: Number(transaccion.monto),
+                moneda: transaccion.moneda,
+                fechaPlanificada: transaccion.fechaPlanificada!,
+                tipo: transaccion.tipo as 'INGRESO' | 'EGRESO'
+              });
+
+              if (googleEventId) {
+                await prisma.transaccion.update({
+                  where: { id: transaccion.id },
+                  data: { googleEventId }
+                });
+              }
+            } catch (calErr) {
+              console.error(`Error no crítico al sincronizar transacción ${transaccion.id} con Calendar:`, calErr);
+              // No bloqueamos la respuesta si falla el calendario
+            }
+          }
+        }
+      }
+
+      return NextResponse.json({
+        message: `${createdTransactions.length} transacciones creadas correctamente`,
+        count: createdTransactions.length
+      }, { status: 201 });
     } else {
       // Carga individual
       const validatedData = TransaccionSchema.parse(body);
