@@ -27,6 +27,15 @@ const activityOptions = [
 export function AsientosGenerateDialog({ open, onClose, onSuccess }: AsientosGenerateDialogProps) {
     const [loading, setLoading] = useState(false);
     const [actividad, setActividad] = useState('');
+    const [entidadId, setEntidadId] = useState('');
+    const [entidades, setEntidades] = useState<{ id: string, nombre: string }[]>([]);
+
+    useState(() => {
+        fetch('/api/entidades?limit=100&activa=true')
+            .then(res => res.json())
+            .then(data => setEntidades(data.entidades || []))
+            .catch(err => console.error('Error cargando entidades:', err));
+    });
 
     const handleGenerate = async () => {
         if (!actividad) {
@@ -39,7 +48,10 @@ export function AsientosGenerateDialog({ open, onClose, onSuccess }: AsientosGen
             const response = await fetch('/api/asientos/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ tipoActividad: actividad }), // actividad now holds the Enum value
+                body: JSON.stringify({
+                    tipoActividad: actividad,
+                    entidadId: entidadId === 'none' ? null : entidadId
+                }),
             });
 
             if (!response.ok) {
@@ -72,6 +84,23 @@ export function AsientosGenerateDialog({ open, onClose, onSuccess }: AsientosGen
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="entidad">Entidad Relacionada (Opcional)</Label>
+                        <Select onValueChange={setEntidadId} value={entidadId}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Selecciona una entidad" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="none">Ninguna (General)</SelectItem>
+                                {entidades.map((e) => (
+                                    <SelectItem key={e.id} value={e.id}>
+                                        {e.nombre}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
                     <div className="space-y-2">
                         <Label htmlFor="actividad">Tu Actividad Principal</Label>
                         <Select onValueChange={setActividad} value={actividad}>

@@ -10,6 +10,7 @@ import {
   BarChart3,
   Info,
   LogOut,
+  Sparkles
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -17,6 +18,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { APP_VERSION } from '@/lib/version-config';
 
 const navigation = [
   {
@@ -53,6 +55,11 @@ const navigation = [
     name: 'Información',
     href: '/dashboard/informacion',
     icon: Info,
+  },
+  {
+    name: 'Novedades',
+    href: '/dashboard/novedades',
+    icon: Sparkles,
   },
 ];
 
@@ -135,14 +142,21 @@ export function DashboardNavigation({ onNavigate }: DashboardNavigationProps = {
             Cerrar Sesión
           </Button>
 
-          <div className="flex flex-col items-center justify-center gap-1 opacity-50 px-2">
-            <div className="flex items-center gap-1.5 grayscale opacity-70">
-              <Image src="/logo-reduced.png" alt="Icono" width={16} height={16} />
-              <span className="text-[10px] font-bold tracking-tight uppercase">Mi Caja Chica</span>
+          <div className="flex flex-col items-center justify-center gap-1.5 opacity-60 px-2 mt-1">
+            <div className="flex items-center gap-3 text-[10px] font-bold text-slate-500 mb-1">
+              <Link href="/dashboard/terminos" className="hover:text-primary transition-colors">Términos</Link>
+              <span className="text-slate-300">•</span>
+              <Link href="/dashboard/privacidad" className="hover:text-primary transition-colors">Privacidad</Link>
             </div>
-            <div className="text-[9px] font-medium flex flex-col items-center">
+            <div className="flex items-center gap-1.5 grayscale opacity-70">
+              <Image src="/logo-reduced.png" alt="Icono" width={14} height={14} />
+              <span className="text-[9px] font-bold tracking-tight uppercase">Mi Caja Chica</span>
+            </div>
+            <div className="text-[8px] font-medium flex flex-col items-center text-slate-400">
               <span>© 2026 Todos los derechos reservados</span>
-              <span className="text-primary/70 font-bold">Versión 1.2.0-ZEN</span>
+              <Link href="/dashboard/novedades" className="text-primary/70 font-semibold hover:underline">
+                Versión {APP_VERSION}
+              </Link>
             </div>
           </div>
         </div>

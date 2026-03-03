@@ -33,6 +33,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '25');
     const export_format = searchParams.get('export') || '';
     const modo = searchParams.get('modo') || 'LISTA'; // LISTA o MAYOR
+    const agruparPor = searchParams.get('agruparPor') || 'CUENTA'; // CUENTA o ASIENTO
 
     const where: Prisma.TransaccionWhereInput = {
       userId: session.user.id,
@@ -51,10 +52,10 @@ export async function GET(request: NextRequest) {
       ...(entidadId && { entidadId }),
       ...(cuentaBancariaId && { cuentaBancariaId }),
       ...(asientoContableId && { asientoContableId }),
-      ...(fechaDesde && fechaHasta && {
+      ...((fechaDesde || fechaHasta) && {
         fecha: {
-          gte: new Date(fechaDesde),
-          lte: new Date(fechaHasta),
+          ...(fechaDesde && { gte: new Date(fechaDesde) }),
+          ...(fechaHasta && { lte: new Date(fechaHasta) }),
         },
       }),
       ...(montoDesde && montoHasta && {
@@ -66,36 +67,48 @@ export async function GET(request: NextRequest) {
     };
 
     // Determinar ordenamiento
-    let orderBy: Prisma.TransaccionOrderByWithRelationInput = { fecha: 'desc' };
+    let orderBy: any = [{ fecha: 'desc' }];
 
     if (modo === 'MAYOR') {
-      // En modo Mayor, siempre ordenar por cuenta y luego por fecha ascendente para el rastro de saldos
-      orderBy = { fecha: 'asc' };
+      if (agruparPor === 'ASIENTO') {
+        orderBy = [
+          { asientoContable: { codigo: 'asc' } },
+          { fecha: 'asc' }
+        ];
+      } else {
+        orderBy = [
+          { cuentaBancaria: { nombre: 'asc' } },
+          { fecha: 'asc' }
+        ];
+      }
     } else {
+      let sortField = sortBy;
+      let order = sortOrder as any;
+
       switch (sortBy) {
         case 'descripcion':
-          orderBy = { descripcion: sortOrder as any };
+          orderBy = [{ descripcion: order }];
           break;
         case 'monto':
-          orderBy = { monto: sortOrder as any };
+          orderBy = [{ monto: order }];
           break;
         case 'entidad':
-          orderBy = { entidad: { nombre: sortOrder as any } };
+          orderBy = [{ entidad: { nombre: order } }];
           break;
         case 'cuenta':
-          orderBy = { cuentaBancaria: { nombre: sortOrder as any } };
+          orderBy = [{ cuentaBancaria: { nombre: order } }];
           break;
         case 'asiento':
-          orderBy = { asientoContable: { codigo: sortOrder as any } };
+          orderBy = [{ asientoContable: { codigo: order } }];
           break;
         case 'tipo':
-          orderBy = { tipo: sortOrder as any };
+          orderBy = [{ tipo: order }];
           break;
         case 'estado':
-          orderBy = { estado: sortOrder as any };
+          orderBy = [{ estado: order }];
           break;
         default:
-          orderBy = { fecha: sortOrder as any };
+          orderBy = [{ fecha: order }];
       }
     }
 
@@ -154,35 +167,38 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Si es modo MAYOR, necesitamos calcular saldos iniciales por cuenta independientemente de la paginación
-    let saldosIniciales: Record<string, number> = {};
+    // Si es modo MAYOR, necesitamos calcular saldos iniciales por entidad de agrupación independientemente de la paginación
+    let saldosIniciales: Record<string, Record<string, number>> = {};
     if (modo === 'MAYOR' && fechaDesde) {
-      const cuentasAfectadas = await prisma.cuentaBancaria.findMany({
-        where: { userId: session.user.id },
-        select: { id: true }
+      const fieldId = agruparPor === 'ASIENTO' ? 'asientoContableId' : 'cuentaBancariaId';
+
+      const results = await prisma.transaccion.groupBy({
+        by: [fieldId, 'tipo', 'moneda'],
+        where: {
+          userId: session.user.id,
+          fecha: { lt: new Date(fechaDesde) },
+          estado: 'REAL'
+        },
+        _sum: {
+          monto: true
+        }
       });
 
-      for (const cuenta of cuentasAfectadas) {
-        const result = await prisma.transaccion.groupBy({
-          by: ['tipo'],
-          where: {
-            userId: session.user.id,
-            cuentaBancariaId: cuenta.id,
-            fecha: { lt: new Date(fechaDesde) },
-            estado: 'REAL' // Solo transacciones reales afectan al saldo contable inicial
-          },
-          _sum: {
-            monto: true
-          }
-        });
+      results.forEach(res => {
+        const id = (res as any)[fieldId];
+        if (!id) return;
+        const moneda = res.moneda;
+        const monto = Number(res._sum.monto || 0);
 
-        const ingresos = Number(result.find(r => r.tipo === 'INGRESO')?._sum.monto || 0);
-        const egresos = Number(result.find(r => r.tipo === 'EGRESO')?._sum.monto || 0);
-        saldosIniciales[cuenta.id] = ingresos - egresos;
-      }
+        if (!saldosIniciales[id]) saldosIniciales[id] = {};
+        if (!saldosIniciales[id][moneda]) saldosIniciales[id][moneda] = 0;
+
+        if (res.tipo === 'INGRESO') saldosIniciales[id][moneda] += monto;
+        else saldosIniciales[id][moneda] -= monto;
+      });
     }
 
-    const [transacciones, total, resumen] = await Promise.all([
+    const [transacciones, total] = await Promise.all([
       prisma.transaccion.findMany({
         where,
         include: {
@@ -195,26 +211,26 @@ export async function GET(request: NextRequest) {
         take: modo === 'MAYOR' ? 1000 : limit, // Limitamos a 1000 para no romper memoria si es mayor, idealmente debería paginar por cuenta
       }),
       prisma.transaccion.count({ where }),
-      // Calcular resumen
-      prisma.transaccion.aggregate({
+    ]);
+
+    // Calcular resumen por tipo y moneda
+    let resumenDetallado: any[] = [];
+    try {
+      // Intentamos agrupar, pero si falla por filtros de relación, lo ignoramos para no romper el reporte
+      resumenDetallado = await (prisma.transaccion.groupBy as any)({
+        by: ['tipo', 'moneda'],
         where,
         _sum: {
           monto: true,
         },
-      }),
-    ]);
-
-    // Calcular resumen por tipo y moneda
-    const resumenDetallado = await prisma.transaccion.groupBy({
-      by: ['tipo', 'moneda'],
-      where,
-      _sum: {
-        monto: true,
-      },
-      _count: {
-        _all: true,
-      },
-    });
+        _count: {
+          _all: true,
+        },
+      });
+    } catch (err) {
+      console.error('Error en groupBy resumenDetallado:', err);
+      resumenDetallado = [];
+    }
 
     return NextResponse.json({
       transacciones,
@@ -227,7 +243,6 @@ export async function GET(request: NextRequest) {
       },
       resumen: {
         totalTransacciones: total,
-        montoTotal: resumen._sum.monto || 0,
         detalle: resumenDetallado,
       },
       filtros: {
@@ -247,8 +262,12 @@ export async function GET(request: NextRequest) {
         modo,
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error al generar reporte de transacciones:', error);
-    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
+    return NextResponse.json({
+      error: 'Error interno del servidor',
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    }, { status: 500 });
   }
 }

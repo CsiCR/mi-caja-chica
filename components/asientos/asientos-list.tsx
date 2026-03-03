@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Search, Edit, Trash2, FileText, Sparkles, CheckSquare, Square, CheckCircle, XCircle, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, FileText, Sparkles, CheckSquare, Square, CheckCircle, XCircle, Filter, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
@@ -177,6 +177,38 @@ export function AsientosList() {
     } catch (error) {
       console.error('Error:', error);
       toast.error('Error al realizar la acción masiva');
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+
+    if (!confirm(`¿Estás seguro de que deseas eliminar ${selectedIds.length} asientos? Esta acción no se puede deshacer y fallará si tienen transacciones.`)) {
+      return;
+    }
+
+    try {
+      setBulkLoading(true);
+      const response = await fetch('/api/asientos', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedIds }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Error en eliminación masiva');
+      }
+
+      toast.success(result.message);
+      setSelectedIds([]);
+      fetchAsientos();
+    } catch (error: any) {
+      console.error('Error:', error);
+      toast.error(error.message || 'Error al realizar la eliminación masiva');
     } finally {
       setBulkLoading(false);
     }
@@ -380,11 +412,23 @@ export function AsientosList() {
             <Button
               variant="ghost"
               size="sm"
+              onClick={handleBulkDelete}
+              disabled={bulkLoading}
+              className="h-8 w-8 p-0 hover:bg-slate-800 text-red-500"
+              title="Eliminar permanentemente"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+            <div className="h-4 w-[1px] bg-slate-700 mx-1" />
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setSelectedIds([])}
               disabled={bulkLoading}
               className="h-8 w-8 p-0 hover:bg-slate-800 text-slate-400"
+              title="Cancelar selección"
             >
-              <Trash2 className="h-4 w-4" />
+              <X className="h-4 w-4" />
             </Button>
           </div>
         </div>

@@ -13,8 +13,12 @@ import {
   ArrowUpDown,
   BarChart3,
   CheckCircle2,
-  Sparkles
+  Sparkles,
+  Scale,
+  ShieldCheck
 } from 'lucide-react';
+import Link from 'next/link';
+import { APP_VERSION } from '@/lib/version-config';
 
 export default async function InformacionPage() {
   const session = await getServerSession(authOptions);
@@ -141,10 +145,11 @@ export default async function InformacionPage() {
                   </div>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-lg mb-2 text-gray-900">Reportes Detallados</h3>
+                  <h3 className="font-semibold text-lg mb-2 text-gray-900">Libro Mayor y Reportes</h3>
                   <p className="text-gray-600 text-sm">
-                    Genera reportes de saldos por entidad y cuenta, análisis de transacciones, y control
-                    de vencimientos. Exporta datos a CSV para análisis externos.
+                    Genera reportes de <strong>Libro Mayor</strong> con agrupación profesional por Asiento o Cuenta.
+                    Visualiza saldos iniciales históricos, movimientos del periodo y balances finales con un solo clic.
+                    Exporta todo a CSV para tu contador.
                   </p>
                 </div>
               </div>
@@ -172,8 +177,15 @@ export default async function InformacionPage() {
               <li className="flex items-start gap-3">
                 <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
                 <span className="text-gray-700">
-                  <strong>Jerarquía Profesional:</strong> Cumplimiento con estándares contables (Clase, Mayor,
-                  Subcuenta, Auxiliar) para reportes de nivel profesional.
+                  <strong>Jerarquía y Agrupación:</strong> Soporte para Libro Mayor con niveles contables
+                  y agrupación inteligente de transacciones para una lectura clara de la estructura de costos.
+                </span>
+              </li>
+              <li className="flex items-start gap-3">
+                <BarChart3 className="h-5 w-5 text-indigo-600 mt-0.5 flex-shrink-0" />
+                <span className="text-gray-700">
+                  <strong>Balance Dinámico:</strong> Cálculo automático de saldos iniciales históricos
+                  y señalética visual (verde para superávit, rojo para déficit) en todos los reportes.
                 </span>
               </li>
               <li className="flex items-start gap-3">
@@ -215,16 +227,30 @@ export default async function InformacionPage() {
                 cada emprendimiento.
               </p>
               <p>
-                ✅ <strong>Mantén el control:</strong> No pierdas de vista ningún movimiento ni vencimiento
-                importante.
-              </p>
-              <p>
                 ✅ <strong>Simplifica tu contabilidad:</strong> Organiza tus registros de forma profesional
                 y accesible.
               </p>
             </div>
           </CardContent>
         </Card>
+
+        {/* Sección Legal */}
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-6 py-4 border-t border-slate-200">
+          <Link href="/dashboard/terminos" className="flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-primary transition-colors uppercase tracking-widest">
+            <Scale className="h-4 w-4" />
+            Términos y Condiciones
+          </Link>
+          <div className="hidden sm:block w-1.5 h-1.5 bg-slate-200 rounded-full"></div>
+          <Link href="/dashboard/privacidad" className="flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-primary transition-colors uppercase tracking-widest">
+            <ShieldCheck className="h-4 w-4" />
+            Seguridad y Privacidad
+          </Link>
+          <div className="hidden sm:block w-1.5 h-1.5 bg-slate-200 rounded-full"></div>
+          <Link href="/dashboard/novedades" className="flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-primary transition-colors uppercase tracking-widest">
+            <Sparkles className="h-4 w-4" />
+            Novedades v{APP_VERSION}
+          </Link>
+        </div>
       </div>
     </DashboardLayoutServer>
   );

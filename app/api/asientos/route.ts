@@ -148,3 +148,50 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
+    const { ids } = await request.json();
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return NextResponse.json({ error: 'Se requieren IDs para la eliminación' }, { status: 400 });
+    }
+
+    // Verificar si alguno tiene transacciones asociadas
+    const withTransactions = await prisma.transaccion.findMany({
+      where: {
+        asientoContableId: { in: ids },
+      },
+      select: { asientoContableId: true },
+      distinct: ['asientoContableId'],
+    });
+
+    if (withTransactions.length > 0) {
+      return NextResponse.json({
+        error: `No se pueden eliminar algunos asientos porque tienen transacciones asociadas. Desmárcalos o desactívalos en su lugar.`,
+        asientosConTransacciones: withTransactions.map(t => t.asientoContableId)
+      }, { status: 400 });
+    }
+
+    const result = await prisma.asientoContable.deleteMany({
+      where: {
+        id: { in: ids },
+        userId: session.user.id,
+      },
+    });
+
+    return NextResponse.json({
+      message: `Se han eliminado ${result.count} asientos correctamente.`,
+      count: result.count
+    });
+  } catch (error) {
+    console.error('Error en bulk delete de asientos:', error);
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
+  }
+}

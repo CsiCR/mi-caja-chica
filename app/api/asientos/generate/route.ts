@@ -21,7 +21,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
         }
 
-        const { tipoActividad } = await req.json(); // Este es el valor del ENUM
+        const { tipoActividad, entidadId } = await req.json(); // Este es el valor del ENUM
         if (!tipoActividad) {
             return NextResponse.json({ error: 'Tipo de actividad requerido' }, { status: 400 });
         }
@@ -51,7 +51,8 @@ export async function POST(req: Request) {
                 codigo: a.codigo,
                 nombre: a.nombre,
                 descripcion: a.descripcion || '',
-                userId: session.user.id
+                userId: session.user.id,
+                entidadId: entidadId || null
             }))
         });
 

@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
@@ -26,16 +26,16 @@ export async function GET(request: NextRequest) {
     // Obtener todas las entidades y cuentas del usuario
     const [entidades, cuentas] = await Promise.all([
       prisma.entidad.findMany({
-        where: { 
-          userId: session.user.id, 
+        where: {
+          userId: session.user.id,
           activa: true,
           ...(entidadId && { id: entidadId }),
         },
         orderBy: { nombre: 'asc' },
       }),
       prisma.cuentaBancaria.findMany({
-        where: { 
-          userId: session.user.id, 
+        where: {
+          userId: session.user.id,
           activa: true,
           ...(cuentaBancariaId && { id: cuentaBancariaId }),
           ...(moneda && { moneda: moneda as any }),
@@ -50,10 +50,10 @@ export async function GET(request: NextRequest) {
       ...(entidadId && { entidadId }),
       ...(cuentaBancariaId && { cuentaBancariaId }),
       ...(moneda && { moneda: moneda as any }),
-      ...(fechaDesde && fechaHasta && {
+      ...((fechaDesde || fechaHasta) && {
         fecha: {
-          gte: new Date(fechaDesde),
-          lte: new Date(fechaHasta),
+          ...(fechaDesde && { gte: new Date(fechaDesde) }),
+          ...(fechaHasta && { lte: new Date(fechaHasta) }),
         },
       }),
       ...(incluirPlanificadas ? {} : { estado: 'REAL' }),
@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
     entidades.forEach(entidad => {
       saldosMatrix[entidad.id] = {};
       totalesPorEntidad[entidad.id] = { ARS: 0, USD: 0 };
-      
+
       cuentas.forEach(cuenta => {
         saldosMatrix[entidad.id][cuenta.id] = { ARS: 0, USD: 0 };
       });
@@ -99,11 +99,11 @@ export async function GET(request: NextRequest) {
       if (saldosMatrix[entidadId] && saldosMatrix[entidadId][cuentaId]) {
         saldosMatrix[entidadId][cuentaId][moneda] += montoFinal;
       }
-      
+
       if (totalesPorEntidad[entidadId]) {
         totalesPorEntidad[entidadId][moneda] += montoFinal;
       }
-      
+
       if (totalesPorCuenta[cuentaId]) {
         totalesPorCuenta[cuentaId][moneda] += montoFinal;
       }

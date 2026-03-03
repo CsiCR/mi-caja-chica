@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -54,12 +54,21 @@ export function AsientoForm({ open, onClose, onSuccess, asiento }: AsientoFormPr
     },
   });
 
-  useState(() => {
-    fetch('/api/entidades?limit=100')
-      .then(res => res.json())
-      .then(data => setEntidades(data.entidades || []))
-      .catch(err => console.error('Error cargando entidades:', err));
-  });
+  useEffect(() => {
+    const fetchEntidades = async () => {
+      try {
+        const res = await fetch('/api/entidades?limit=100&activa=true');
+        const data = await res.json();
+        setEntidades(data.entidades || []);
+      } catch (err) {
+        console.error('Error cargando entidades:', err);
+      }
+    };
+
+    if (open) {
+      fetchEntidades();
+    }
+  }, [open]);
 
   const handleSuggest = async () => {
     if (!proposito) {

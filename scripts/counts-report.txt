@@ -1,0 +1,9 @@
+--- RESUMEN DE TRANSACCIONES ---
+Entidad: Panadería Don Carlos | Asiento: ALQ001 | Cantidad: 1
+Entidad: Vivienda Familiar  | Asiento: B-Imputar | Cantidad: 35
+Entidad: Desarrollo Web SRL | Asiento: SRV001 | Cantidad: 1
+Entidad: Panadería Don Carlos | Asiento: MP001 | Cantidad: 1
+Entidad: Consultoría Freelance | Asiento: SRV001 | Cantidad: 1
+Entidad: Orange computación  | Asiento: A-Imputar | Cantidad: 15
+Entidad: Panadería Don Carlos | Asiento: VTA001 | Cantidad: 1
+Entidad: Inversiones Personales | Asiento: INV001 | Cantidad: 1

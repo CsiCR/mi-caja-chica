@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -25,30 +24,32 @@ import {
   TrendingDown,
   RefreshCw,
   HelpCircle,
+  ChevronDown,
+  ChevronRight,
   Eye,
-  Filter
+  EyeOff,
+  MoreVertical,
+  Loader2,
+  Filter,
+  Edit2,
+  Trash2
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { TransaccionForm } from '../transacciones/transaccion-form';
+import { TransaccionDeleteDialog } from '../transacciones/transaccion-delete-dialog';
+import { Transaccion } from '../transacciones/transacciones-list';
 import toast from 'react-hot-toast';
 
-interface Transaccion {
-  id: string;
-  descripcion: string;
-  monto: number;
-  moneda: 'ARS' | 'USD';
-  tipo: 'INGRESO' | 'EGRESO';
-  estado: 'REAL' | 'PLANIFICADA';
-  fecha: string;
-  fechaPlanificada?: string;
-  comentario?: string;
-  entidad: { nombre: string; tipo: string };
-  cuentaBancaria: { id: string; nombre: string; banco: string };
-  asientoContable: { codigo: string; nombre: string };
-}
 
 interface TransaccionesReportResponse {
   transacciones: Transaccion[];
-  saldosIniciales?: Record<string, number>;
+  saldosIniciales?: Record<string, Record<string, number>>;
   pagination: {
     page: number;
     limit: number;
@@ -57,7 +58,6 @@ interface TransaccionesReportResponse {
   };
   resumen: {
     totalTransacciones: number;
-    montoTotal: number;
     detalle: Array<{
       tipo: string;
       moneda: string;
@@ -94,6 +94,13 @@ export function ReporteTransacciones() {
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const [modo, setModo] = useState<'LISTA' | 'MAYOR'>('LISTA');
+  const [agruparMayorPor, setAgruparMayorPor] = useState<'CUENTA' | 'ASIENTO'>('ASIENTO');
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+
+  // Estados para edición y eliminación
+  const [selectedTransaccion, setSelectedTransaccion] = useState<Transaccion | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
 
   const fetchOptions = async () => {
     try {
@@ -114,79 +121,6 @@ export function ReporteTransacciones() {
       setAsientos(asientosData.asientos || []);
     } catch (error) {
       console.error('Error al cargar opciones:', error);
-      toast.error('Error al cargar las opciones');
-    }
-  };
-
-  const fetchTransacciones = async () => {
-    try {
-      setLoading(true);
-
-      const params = new URLSearchParams({
-        page: currentPage.toString(),
-        limit: '25',
-        sortBy,
-        sortOrder,
-        ...(searchTerm && { search: searchTerm }),
-        ...(tipoFilter && { tipo: tipoFilter }),
-        ...(estadoFilter && { estado: estadoFilter }),
-        ...(monedaFilter && { moneda: monedaFilter }),
-        ...(entidadFilter && { entidadId: entidadFilter }),
-        ...(cuentaFilter && { cuentaBancariaId: cuentaFilter }),
-        ...(asientoFilter && { asientoContableId: asientoFilter }),
-        ...(dateRange?.from && { fechaDesde: format(dateRange.from, 'yyyy-MM-dd') }),
-        ...(dateRange?.to && { fechaHasta: format(dateRange.to, 'yyyy-MM-dd') }),
-        ...(montoDesde && { montoDesde }),
-        ...(montoHasta && { montoHasta }),
-      });
-
-      const response = await fetch(`/api/reportes/transacciones?${params}`);
-      if (!response.ok) throw new Error('Error al cargar reporte');
-
-      const reporteData = await response.json();
-      setData(reporteData);
-    } catch (error) {
-      console.error('Error:', error);
-      toast.error('Error al cargar el reporte de transacciones');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const exportToCsv = async () => {
-    try {
-      const params = new URLSearchParams({
-        export: 'csv',
-        ...(searchTerm && { search: searchTerm }),
-        ...(tipoFilter && { tipo: tipoFilter }),
-        ...(estadoFilter && { estado: estadoFilter }),
-        ...(monedaFilter && { moneda: monedaFilter }),
-        ...(entidadFilter && { entidadId: entidadFilter }),
-        ...(cuentaFilter && { cuentaBancariaId: cuentaFilter }),
-        ...(asientoFilter && { asientoContableId: asientoFilter }),
-        ...(dateRange?.from && { fechaDesde: format(dateRange.from, 'yyyy-MM-dd') }),
-        ...(dateRange?.to && { fechaHasta: format(dateRange.to, 'yyyy-MM-dd') }),
-        ...(montoDesde && { montoDesde }),
-        ...(montoHasta && { montoHasta }),
-      });
-
-      const response = await fetch(`/api/reportes/transacciones?${params}`);
-      if (!response.ok) throw new Error('Error al exportar');
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `transacciones_${format(new Date(), 'yyyy-MM-dd')}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-
-      toast.success('Reporte exportado correctamente');
-    } catch (error) {
-      console.error('Error:', error);
-      toast.error('Error al exportar el reporte');
     }
   };
 
@@ -194,46 +128,80 @@ export function ReporteTransacciones() {
     fetchOptions();
   }, []);
 
+  const fetchTransacciones = async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams({
+        search: searchTerm,
+        ...(tipoFilter && { tipo: tipoFilter }),
+        ...(estadoFilter && { estado: estadoFilter }),
+        ...(monedaFilter && { moneda: monedaFilter }),
+        ...(entidadFilter && { entidadId: entidadFilter }),
+        ...(cuentaFilter && { cuentaBancariaId: cuentaFilter }),
+        ...(asientoFilter && { asientoContableId: asientoFilter }),
+        ...(dateRange?.from && { fechaDesde: format(dateRange.from, 'yyyy-MM-dd') }),
+        ...(dateRange?.to && { fechaHasta: format(dateRange.to, 'yyyy-MM-dd') }),
+        ...(montoDesde && { montoDesde }),
+        ...(montoHasta && { montoHasta }),
+        sortBy,
+        sortOrder,
+        page: currentPage.toString(),
+        limit: '25',
+        modo,
+        agruparPor: agruparMayorPor
+      });
+
+      const response = await fetch(`/api/reportes/transacciones?${params}`);
+      if (!response.ok) throw new Error('Error al cargar transacciones');
+
+      const reporteData = await response.json();
+      setData(reporteData);
+    } catch (error) {
+      console.error('Error al cargar transacciones:', error);
+      toast.error('Error al cargar transacciones');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleGroup = (groupKey: string) => {
+    setExpandedGroups(prev => ({
+      ...prev,
+      [groupKey]: !prev[groupKey]
+    }));
+  };
+
+  const toggleAllGroups = (expand: boolean) => {
+    if (!data) return;
+    const groups = data.transacciones.reduce((acc: string[], t: Transaccion) => {
+      const groupKey = agruparMayorPor === 'ASIENTO' ? t.asientoContable.codigo : t.cuentaBancaria.id;
+      if (!acc.includes(groupKey)) acc.push(groupKey);
+      return acc;
+    }, []);
+    const next: Record<string, boolean> = {};
+    groups.forEach((g: string) => next[g] = expand);
+    setExpandedGroups(next);
+  };
+
   useEffect(() => {
     fetchTransacciones();
-  }, [
-    currentPage,
-    searchTerm,
-    tipoFilter,
-    estadoFilter,
-    monedaFilter,
-    entidadFilter,
-    cuentaFilter,
-    asientoFilter,
-    dateRange,
-    montoDesde,
-    montoHasta,
-    sortBy,
-    sortOrder,
-    modo
-  ]);
+  }, [searchTerm, tipoFilter, estadoFilter, monedaFilter, entidadFilter, cuentaFilter, asientoFilter, dateRange, montoDesde, montoHasta, sortBy, sortOrder, currentPage, modo, agruparMayorPor]);
 
-  const handleSort = (field: SortField) => {
-    if (sortBy === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortBy(field);
-      setSortOrder('desc');
-    }
-    setCurrentPage(1);
+  const handleEdit = (t: Transaccion) => {
+    setSelectedTransaccion(t);
+    setIsEditOpen(true);
   };
 
-  const getSortIcon = (field: SortField) => {
-    if (sortBy !== field) return <ArrowUpDown className="h-4 w-4" />;
-    return sortOrder === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />;
+  const handleDelete = (t: Transaccion) => {
+    setSelectedTransaccion(t);
+    setIsDeleteOpen(true);
   };
 
-  const formatMonto = (monto: number, moneda: string) => {
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: moneda,
-      minimumFractionDigits: 2,
-    }).format(monto);
+  const handleSuccess = () => {
+    setIsEditOpen(false);
+    setIsDeleteOpen(false);
+    setSelectedTransaccion(null);
+    fetchTransacciones();
   };
 
   const clearFilters = () => {
@@ -247,227 +215,288 @@ export function ReporteTransacciones() {
     setDateRange(undefined);
     setMontoDesde('');
     setMontoHasta('');
-    setCurrentPage(1);
+  };
+
+  const handleSort = (field: SortField) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortOrder('desc');
+    }
+  };
+
+  const getSortIcon = (field: SortField) => {
+    if (sortBy !== field) return <ArrowUpDown className="h-3 w-3 ml-1" />;
+    return sortOrder === 'asc' ? <ArrowUp className="h-3 w-3 ml-1" /> : <ArrowDown className="h-3 w-3 ml-1" />;
+  };
+
+  const formatMonto = (monto: number, moneda: string) => {
+    return new Intl.NumberFormat('es-AR', {
+      style: 'currency',
+      currency: moneda,
+    }).format(monto);
+  };
+
+  const getMontoColor = (monto: number) => {
+    if (monto > 0) return 'text-green-600';
+    if (monto < 0) return 'text-red-600'; // Rojo un poco más fuerte para que se vea bien
+    return 'text-slate-400';
+  };
+
+  const exportToCsv = () => {
+    const params = new URLSearchParams({
+      search: searchTerm,
+      ...(tipoFilter && { tipo: tipoFilter }),
+      ...(estadoFilter && { estado: estadoFilter }),
+      ...(monedaFilter && { moneda: monedaFilter }),
+      ...(entidadFilter && { entidadId: entidadFilter }),
+      ...(cuentaFilter && { cuentaBancariaId: cuentaFilter }),
+      ...(asientoFilter && { asientoContableId: asientoFilter }),
+      ...(dateRange?.from && { fechaDesde: format(dateRange.from, 'yyyy-MM-dd') }),
+      ...(dateRange?.to && { fechaHasta: format(dateRange.to, 'yyyy-MM-dd') }),
+      export: 'csv'
+    });
+    window.open(`/api/reportes/transacciones?${params}`, '_blank');
   };
 
   return (
-    <div className="space-y-4 -mt-4">
-      {/* Barra de Filtros Compacta Zen */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-2 p-2 bg-slate-50 border rounded-lg sticky top-0 z-30 shadow-sm">
-        <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0 no-scrollbar">
-          <div className="relative w-full sm:w-[200px]">
-            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-muted-foreground h-3 w-3" />
+    <div className="space-y-4 relative">
+      {/* Overlay de Carga */}
+      {loading && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/60 backdrop-blur-[2px] rounded-xl transition-all duration-300">
+          <div className="flex flex-col items-center p-6 bg-white shadow-2xl rounded-2xl border border-slate-200 animate-in fade-in zoom-in duration-300">
+            <div className="relative">
+              <Loader2 className="h-10 w-10 text-primary animate-spin" />
+            </div>
+            <span className="mt-4 text-sm font-bold text-slate-700 tracking-tight uppercase">Actualizando Reporte</span>
+            <p className="mt-1 text-[10px] text-slate-500 font-medium">Por favor, espera un momento...</p>
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between bg-slate-50 p-4 rounded-xl border border-slate-200">
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto items-center">
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
             <Input
-              placeholder="Buscar..."
+              placeholder="Buscar por descripción..."
+              className="pl-9 h-9 text-xs bg-white border-slate-200 shadow-sm"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-7 h-8 text-xs bg-white"
             />
           </div>
 
-          <div className="hidden md:flex items-center gap-2">
-            <Select value={tipoFilter || 'all'} onValueChange={(value) => setTipoFilter(value === 'all' ? '' : value)}>
-              <SelectTrigger className="h-8 w-[110px] text-xs bg-white">
-                <SelectValue placeholder="Tipo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="INGRESO">Ingresos</SelectItem>
-                <SelectItem value="EGRESO">Egresos</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={monedaFilter || 'all'} onValueChange={(value) => setMonedaFilter(value === 'all' ? '' : value)}>
-              <SelectTrigger className="h-8 w-[90px] text-xs bg-white">
-                <SelectValue placeholder="Moneda" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas</SelectItem>
-                <SelectItem value="ARS">ARS</SelectItem>
-                <SelectItem value="USD">USD</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
 
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 text-xs gap-1 bg-white">
-                <Filter className="h-3 w-3" />
-                <span className="hidden sm:inline">Más Filtros</span>
-                {(entidadFilter || cuentaFilter || asientoFilter || estadoFilter || dateRange || montoDesde || montoHasta) && (
-                  <Badge variant="secondary" className="h-4 w-4 p-0 flex items-center justify-center rounded-full text-[10px]">
-                    !
-                  </Badge>
-                )}
+              <Button variant="outline" size="sm" className="h-9 text-xs gap-2 bg-white border-slate-200 shadow-sm">
+                <Filter className="h-3.5 w-3.5" />
+                Más Filtros {(entidadFilter || cuentaFilter || asientoFilter || dateRange || montoDesde || montoHasta) && <Badge className="h-4 w-4 p-0 flex items-center justify-center bg-primary text-white">!</Badge>}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-80 p-4 space-y-4" align="start">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2">
-                  <Label className="text-[10px] uppercase font-bold text-muted-foreground">Período</Label>
-                  <DatePickerWithRange className="w-full mt-1" date={dateRange} onDateChange={setDateRange} />
+            <PopoverContent className="w-[420px] p-4" align="start">
+              <div className="grid gap-4">
+                <div className="space-y-1">
+                  <h4 className="font-bold leading-none text-xs uppercase tracking-wider text-slate-500">Filtros Avanzados</h4>
+                  <p className="text-[10px] text-muted-foreground font-medium">Personaliza los resultados del reporte.</p>
                 </div>
-                <div>
-                  <Label className="text-[10px] uppercase font-bold text-muted-foreground">Estado</Label>
-                  <Select value={estadoFilter || 'all'} onValueChange={(value) => setEstadoFilter(value === 'all' ? '' : value)}>
-                    <SelectTrigger className="h-8 text-xs mt-1">
-                      <SelectValue placeholder="Estado" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      <SelectItem value="REAL">Reales</SelectItem>
-                      <SelectItem value="PLANIFICADA">Planificadas</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-[10px] uppercase font-bold text-muted-foreground">Entidad</Label>
-                  <Select value={entidadFilter || 'all'} onValueChange={(value) => setEntidadFilter(value === 'all' ? '' : value)}>
-                    <SelectTrigger className="h-8 text-xs mt-1">
-                      <SelectValue placeholder="Entidad" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas</SelectItem>
-                      {entidades.map(e => <SelectItem key={e.id} value={e.id}>{e.nombre}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-[10px] uppercase font-bold text-muted-foreground">Cuenta</Label>
-                  <Select value={cuentaFilter || 'all'} onValueChange={(value) => setCuentaFilter(value === 'all' ? '' : value)}>
-                    <SelectTrigger className="h-8 text-xs mt-1">
-                      <SelectValue placeholder="Cuenta" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas</SelectItem>
-                      {cuentas.map(c => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-[10px] uppercase font-bold text-muted-foreground">Asiento</Label>
-                  <Select value={asientoFilter || 'all'} onValueChange={(value) => setAsientoFilter(value === 'all' ? '' : value)}>
-                    <SelectTrigger className="h-8 text-xs mt-1">
-                      <SelectValue placeholder="Asiento" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      {asientos.map(a => <SelectItem key={a.id} value={a.id}>{a.codigo}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="col-span-2 grid grid-cols-2 gap-2">
-                  <div>
-                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Desde</Label>
-                    <Input type="number" value={montoDesde} onChange={(e) => setMontoDesde(e.target.value)} className="h-8 text-xs mt-1" placeholder="Min" />
+                <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                  <div className="col-span-2 space-y-2">
+                    <Label className="text-[10px] uppercase font-bold text-slate-400 tracking-tighter">Período de Fecha</Label>
+                    <DatePickerWithRange date={dateRange} onDateChange={setDateRange} />
                   </div>
-                  <div>
-                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Hasta</Label>
-                    <Input type="number" value={montoHasta} onChange={(e) => setMontoHasta(e.target.value)} className="h-8 text-xs mt-1" placeholder="Max" />
+
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] uppercase font-bold text-slate-400 tracking-tighter">Tipo Transacción</Label>
+                    <Select value={tipoFilter || 'all'} onValueChange={(value) => setTipoFilter(value === 'all' ? '' : value)}>
+                      <SelectTrigger className="h-8 text-xs bg-white shadow-sm">
+                        <SelectValue placeholder="Seleccionar" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        <SelectItem value="INGRESO">Ingresos</SelectItem>
+                        <SelectItem value="EGRESO">Egresos</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] uppercase font-bold text-slate-400 tracking-tighter">Estado Pago</Label>
+                    <Select value={estadoFilter || 'all'} onValueChange={(value) => setEstadoFilter(value === 'all' ? '' : value)}>
+                      <SelectTrigger className="h-8 text-xs bg-white shadow-sm">
+                        <SelectValue placeholder="Seleccionar" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas</SelectItem>
+                        <SelectItem value="REAL">Reales</SelectItem>
+                        <SelectItem value="PLANIFICADA">Planificadas</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-[10px] uppercase font-bold text-slate-400 tracking-tighter">Moneda</Label>
+                    <Select value={monedaFilter || 'all'} onValueChange={(value) => setMonedaFilter(value === 'all' ? '' : value)}>
+                      <SelectTrigger className="h-9 text-xs">
+                        <SelectValue placeholder="Moneda" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas</SelectItem>
+                        <SelectItem value="ARS">ARS</SelectItem>
+                        <SelectItem value="USD">USD</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-[10px] uppercase font-bold text-slate-400 tracking-tighter">Asiento</Label>
+                    <Select value={asientoFilter || 'all'} onValueChange={(value) => setAsientoFilter(value === 'all' ? '' : value)}>
+                      <SelectTrigger className="h-9 text-xs">
+                        <SelectValue placeholder="Asiento" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        {asientos.map(a => <SelectItem key={a.id} value={a.id}>{a.codigo}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-[10px] uppercase font-bold text-slate-400 tracking-tighter">Entidad</Label>
+                    <Select value={entidadFilter || 'all'} onValueChange={(value) => setEntidadFilter(value === 'all' ? '' : value)}>
+                      <SelectTrigger className="h-9 text-xs">
+                        <SelectValue placeholder="Entidad" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas</SelectItem>
+                        {entidades.map(e => <SelectItem key={e.id} value={e.id}>{e.nombre}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-[10px] uppercase font-bold text-slate-400 tracking-tighter">Cuenta</Label>
+                    <Select value={cuentaFilter || 'all'} onValueChange={(value) => setCuentaFilter(value === 'all' ? '' : value)}>
+                      <SelectTrigger className="h-9 text-xs">
+                        <SelectValue placeholder="Cuenta" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas</SelectItem>
+                        {cuentas.map(c => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5 text-xs">
+                    <Label className="text-[10px] uppercase font-bold text-slate-400 tracking-tighter">Monto (Desde - Hasta)</Label>
+                    <div className="flex items-center gap-2">
+                      <Input type="number" value={montoDesde} onChange={(e) => setMontoDesde(e.target.value)} className="h-8 py-0 px-2 text-[11px]" placeholder="Min" />
+                      <span className="text-slate-300">-</span>
+                      <Input type="number" value={montoHasta} onChange={(e) => setMontoHasta(e.target.value)} className="h-8 py-0 px-2 text-[11px]" placeholder="Max" />
+                    </div>
                   </div>
                 </div>
+                <Button variant="ghost" size="sm" onClick={clearFilters} className="w-full text-xs h-9 hover:bg-slate-100 mt-2 font-bold text-slate-700">Limpiar Filtros</Button>
               </div>
-              <Button variant="ghost" size="sm" onClick={clearFilters} className="w-full text-xs h-8">Limpiar Filtros</Button>
             </PopoverContent>
           </Popover>
         </div>
 
-      </div>
-
-      <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-        <div className="flex items-center bg-white border rounded-lg p-0.5 mr-2">
-          <Button
-            variant={modo === 'LISTA' ? 'secondary' : 'ghost'}
-            size="sm"
-            onClick={() => { setModo('LISTA'); setSortBy('fecha'); setSortOrder('desc'); }}
-            className="h-7 text-[10px] px-2"
-          >
-            Lista
-          </Button>
-          <Button
-            variant={modo === 'MAYOR' ? 'secondary' : 'ghost'}
-            size="sm"
-            onClick={() => { setModo('MAYOR'); setSortBy('fecha'); setSortOrder('asc'); }}
-            className="h-7 text-[10px] px-2"
-          >
-            Libro Mayor
-          </Button>
-        </div>
-
-        {data && (
-          <div className="hidden lg:flex items-center gap-3 mr-2 text-[10px] font-medium border-r pr-3">
-            <div className="flex flex-col items-end leading-none">
-              <span className="text-[8px] text-gray-400 uppercase">Ingresos</span>
-              <span className="text-green-600">{formatMonto(data.resumen.detalle.find(d => d.tipo === 'INGRESO' && d.moneda === 'ARS')?._sum.monto || 0, 'ARS')}</span>
-            </div>
-            <div className="flex flex-col items-end leading-none">
-              <span className="text-[8px] text-gray-400 uppercase">Egresos</span>
-              <span className="text-red-600">{formatMonto(data.resumen.detalle.find(d => d.tipo === 'EGRESO' && d.moneda === 'ARS')?._sum.monto || 0, 'ARS')}</span>
-            </div>
-          </div>
-        )}
-
-        <Button variant="outline" size="sm" onClick={exportToCsv} className="h-8 text-xs gap-1 bg-white">
-          <Download className="h-3 w-3" />
-          <span className="hidden sm:inline">Exportar</span>
-        </Button>
-
-        <Button size="sm" onClick={fetchTransacciones} disabled={loading} className="h-8 text-xs">
-          <RefreshCw className={`h-3 w-3 mr-1 ${loading ? 'animate-spin' : ''}`} />
-          Actualizar
-        </Button>
-
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full">
-              <HelpCircle className="h-4 w-4 text-muted-foreground" />
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+          <div className="flex items-center bg-white border rounded-lg p-0.5 mr-2">
+            <Button
+              variant={modo === 'LISTA' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => { setModo('LISTA'); setSortBy('fecha'); setSortOrder('desc'); }}
+              className="h-7 text-[10px] px-2"
+            >
+              Lista
             </Button>
-          </PopoverTrigger>
-          <PopoverContent align="end" className="w-80 p-4">
-            <div className="space-y-4">
-              <div className="space-y-1">
-                <h4 className="font-semibold text-sm leading-none flex items-center gap-2">
-                  <HelpCircle className="h-4 w-4 text-primary" />
-                  Detalle de Transacciones Zen
-                </h4>
-                <p className="text-[11px] text-muted-foreground">Guía rápida de funciones</p>
-              </div>
-              <div className="grid gap-3 text-xs">
-                <div className="flex gap-2">
-                  <div className="w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 bg-slate-50">
-                    <Search className="h-2 w-2" />
-                  </div>
-                  <div>
-                    <p className="font-medium">Búsqueda rápida</p>
-                    <p className="text-muted-foreground text-[10px]">Busca por descripción, entidad, cuenta o código de asiento instantáneamente.</p>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <div className="w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 bg-slate-50">
-                    <Download className="h-2 w-2" />
-                  </div>
-                  <div>
-                    <p className="font-medium">Exportación Directa</p>
-                    <p className="text-muted-foreground text-[10px]">Usa el botón de exportar para bajar el CSV con los filtros aplicados.</p>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <div className="w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 bg-slate-50">
-                    <ArrowUpDown className="h-2 w-2" />
-                  </div>
-                  <div>
-                    <p className="font-medium">Libro Mayor</p>
-                    <p className="text-muted-foreground text-[10px]">Agrupa por cuenta, muestra saldos iniciales y el rastro del saldo progresivo.</p>
-                  </div>
-                </div>
-              </div>
-              <Button onClick={exportToCsv} size="sm" className="w-full text-[10px] h-7 gap-1">
-                <Download className="h-3 w-3" />
-                Descargar CSV Actual
+            <Button
+              variant={modo === 'MAYOR' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => { setModo('MAYOR'); setSortBy('fecha'); setSortOrder('asc'); }}
+              className="h-7 text-[10px] px-2"
+            >
+              Libro Mayor
+            </Button>
+          </div>
+
+          {modo === 'MAYOR' && (
+            <div className="flex items-center bg-blue-50 border border-blue-100 rounded-lg p-0.5 mr-2">
+              <Button
+                variant={agruparMayorPor === 'ASIENTO' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => setAgruparMayorPor('ASIENTO')}
+                className={`h-7 text-[10px] px-2 ${agruparMayorPor === 'ASIENTO' ? 'bg-white shadow-sm' : 'text-blue-600'}`}
+              >
+                Por Asiento
+              </Button>
+              <Button
+                variant={agruparMayorPor === 'CUENTA' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => setAgruparMayorPor('CUENTA')}
+                className={`h-7 text-[10px] px-2 ${agruparMayorPor === 'CUENTA' ? 'bg-white shadow-sm' : 'text-blue-600'}`}
+              >
+                Por Cuenta
               </Button>
             </div>
-          </PopoverContent>
-        </Popover>
+          )}
+
+          {modo === 'MAYOR' && (
+            <div className="flex items-center gap-1.5 mr-2 ml-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => toggleAllGroups(true)}
+                className="h-8 w-8 p-0 bg-white border-slate-200 text-slate-500 hover:text-blue-600"
+                title="Expandir todo"
+              >
+                <Eye className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => toggleAllGroups(false)}
+                className="h-8 w-8 p-0 bg-white border-slate-200 text-slate-500 hover:text-orange-600"
+                title="Colapsar todo"
+              >
+                <EyeOff className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          )}
+
+          {data && data.resumen && data.resumen.detalle && (
+            <div className="hidden xl:flex items-center gap-4 mr-3 text-[10px] font-medium border-x px-4">
+              {['ARS', 'USD'].map(mon => {
+                const ing = data.resumen.detalle.find((d: any) => d.tipo === 'INGRESO' && d.moneda === mon)?._sum.monto || 0;
+                const egr = data.resumen.detalle.find((d: any) => d.tipo === 'EGRESO' && d.moneda === mon)?._sum.monto || 0;
+                if (Number(ing) === 0 && Number(egr) === 0) return null;
+                return (
+                  <div key={mon} className="flex flex-col items-center">
+                    <span className="text-[7px] text-slate-400 uppercase font-black tracking-widest leading-none mb-1 opacity-60">{mon}</span>
+                    <div className="flex items-center gap-2 leading-none">
+                      <span className="text-green-600 font-mono font-bold">{formatMonto(Number(ing), mon)}</span>
+                      <span className="text-slate-300 font-light">/</span>
+                      <span className="text-red-500 font-mono font-bold">{formatMonto(Number(egr), mon)}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <Button variant="outline" size="sm" onClick={exportToCsv} className="h-8 text-xs gap-1 bg-white">
+            <Download className="h-3 w-3" />
+            <span className="hidden sm:inline">Exportar</span>
+          </Button>
+
+          <Button size="sm" onClick={fetchTransacciones} disabled={loading} className="h-8 text-xs">
+            <RefreshCw className={`h-3 w-3 mr-1 ${loading ? 'animate-spin' : ''}`} />
+            Actualizar
+          </Button>
+        </div>
       </div>
 
       {/* Tabla de Transacciones */}
@@ -507,48 +536,123 @@ export function ReporteTransacciones() {
                       Monto {getSortIcon('monto')}
                     </Button>
                   </TableHead>
-                  <TableHead className="text-center border-b">
-                    <Button variant="ghost" onClick={() => handleSort('estado')} className="h-auto p-0 hover:bg-transparent font-bold text-[10px] uppercase">
-                      Estado {getSortIcon('estado')}
-                    </Button>
-                  </TableHead>
+                  {modo === 'LISTA' && (
+                    <TableHead className="text-center border-b">
+                      <Button variant="ghost" onClick={() => handleSort('estado')} className="h-auto p-0 hover:bg-transparent font-bold text-[10px] uppercase">
+                        Estado {getSortIcon('estado')}
+                      </Button>
+                    </TableHead>
+                  )}
+                  <TableHead className="border-b w-[80px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {modo === 'MAYOR' ? (
-                  // Renderizado Libro Mayor (Agrupado por Cuenta)
                   Object.entries(
                     data.transacciones.reduce((acc, t) => {
-                      const key = t.cuentaBancaria.id;
-                      if (!acc[key]) acc[key] = { info: t.cuentaBancaria, items: [] };
-                      acc[key].items.push(t);
+                      const groupKey = agruparMayorPor === 'ASIENTO' ? t.asientoContable.codigo : t.cuentaBancaria.id;
+                      if (!acc[groupKey]) acc[groupKey] = {
+                        info: agruparMayorPor === 'ASIENTO' ? t.asientoContable : t.cuentaBancaria,
+                        items: []
+                      };
+                      acc[groupKey].items.push(t);
                       return acc;
                     }, {} as Record<string, { info: any, items: Transaccion[] }>)
-                  ).map(([cuentaId, group]) => {
-                    let runningBalance = data.saldosIniciales?.[cuentaId] || 0;
+                  ).map(([groupKey, group]) => {
+                    const inicialesGroup = data.saldosIniciales?.[agruparMayorPor === 'ASIENTO' ? group.info.id : groupKey] || {};
+                    const runningBalances: Record<string, number> = {
+                      ARS: Number(inicialesGroup.ARS || 0),
+                      USD: Number(inicialesGroup.USD || 0)
+                    };
+                    const isExpanded = expandedGroups[groupKey] !== false;
+                    const totalIngresos: Record<string, number> = {};
+                    const totalEgresos: Record<string, number> = {};
+
+                    group.items.forEach(t => {
+                      if (t.tipo === 'INGRESO') totalIngresos[t.moneda] = (totalIngresos[t.moneda] || 0) + Number(t.monto);
+                      else totalEgresos[t.moneda] = (totalEgresos[t.moneda] || 0) + Number(t.monto);
+                    });
+
                     return (
-                      <React.Fragment key={cuentaId}>
-                        {/* Cabecera de Cuenta */}
-                        <TableRow className="bg-slate-100/50 hover:bg-slate-100/50">
-                          <TableCell colSpan={7} className="py-2 border-b font-bold">
-                            <div className="flex items-center justify-between">
-                              <span className="uppercase text-[10px] text-slate-500 mr-2">Cuenta:</span>
-                              <span className="text-primary">{group.info.nombre} ({group.info.banco})</span>
-                              <div className="flex-1"></div>
-                              <span className="text-[10px] font-normal text-slate-500 uppercase mr-2">Saldo Inicial:</span>
-                              <span className="font-mono">{formatMonto(data.saldosIniciales?.[cuentaId] || 0, group.items[0]?.moneda || 'ARS')}</span>
+                      <React.Fragment key={groupKey}>
+                        <TableRow className="bg-slate-50 hover:bg-slate-100/80 cursor-pointer" onClick={() => toggleGroup(groupKey)}>
+                          <TableCell colSpan={8} className="py-2 border-b border-t font-bold">
+                            <div className="flex items-center gap-3">
+                              {isExpanded ? <ChevronDown className="h-4 w-4 text-slate-400" /> : <ChevronRight className="h-4 w-4 text-slate-400" />}
+
+                              <div className="flex flex-col">
+                                <span className="uppercase text-[9px] text-slate-400 leading-none mb-0.5">
+                                  {agruparMayorPor === 'ASIENTO' ? 'Asiento' : 'Cuenta'}
+                                </span>
+                                <span className="text-primary text-sm truncate max-w-[200px] sm:max-w-none">
+                                  {agruparMayorPor === 'ASIENTO'
+                                    ? `${group.info.codigo} - ${group.info.nombre}`
+                                    : `${group.info.nombre} (${group.info.banco})`}
+                                </span>
+                              </div>
+
+                              <div className="hidden sm:flex items-center gap-6 ml-auto mr-4">
+                                <div className="flex flex-col items-end">
+                                  <span className="text-[8px] text-slate-400 uppercase leading-none">Saldo Inicial</span>
+                                  <div className="flex gap-2">
+                                    {Object.entries(inicialesGroup).map(([mon, saldo]) => (
+                                      <span key={mon} className={`font-mono text-[10px] font-bold ${getMontoColor(Number(saldo))}`}>
+                                        {formatMonto(Number(saldo), mon)}
+                                      </span>
+                                    ))}
+                                    {Object.keys(inicialesGroup).length === 0 && <span className="font-mono text-[10px] text-slate-400">$ 0,00</span>}
+                                  </div>
+                                </div>
+
+                                <div className="flex flex-col items-end border-l pl-4">
+                                  <span className="text-[8px] text-slate-400 uppercase leading-none">Movimientos</span>
+                                  <div className="flex gap-2">
+                                    {['ARS', 'USD'].map(mon => {
+                                      const ing = totalIngresos[mon] || 0;
+                                      const egr = totalEgresos[mon] || 0;
+                                      if (ing === 0 && egr === 0) return null;
+                                      return (
+                                        <div key={mon} className="flex gap-1.5 font-mono text-[10px]">
+                                          <span className="text-green-600">+{formatMonto(ing, mon)}</span>
+                                          <span className="text-red-600">-{formatMonto(egr, mon)}</span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+
+                                <div className="flex flex-col items-end border-l pl-4">
+                                  <span className="text-[8px] text-slate-400 uppercase leading-none">Saldo Final</span>
+                                  <div className="flex gap-2">
+                                    {['ARS', 'USD'].map(mon => {
+                                      const ing = totalIngresos[mon] || 0;
+                                      const egr = totalEgresos[mon] || 0;
+                                      const ini = Number(inicialesGroup[mon] || 0);
+                                      const fin = ini + ing - egr;
+                                      if (ing === 0 && egr === 0 && ini === 0) return null;
+                                      return (
+                                        <span key={mon} className={`font-mono text-[11px] font-bold underline decoration-current/30 ${getMontoColor(fin)}`}>
+                                          {formatMonto(fin, mon)}
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              </div>
                             </div>
                           </TableCell>
                         </TableRow>
 
-                        {/* Transacciones del Grupo */}
-                        {group.items.map((transaccion) => {
-                          if (transaccion.estado === 'REAL') {
-                            if (transaccion.tipo === 'INGRESO') runningBalance += Number(transaccion.monto);
-                            else runningBalance -= Number(transaccion.monto);
+                        {isExpanded && group.items.map((transaccion) => {
+                          const mon = transaccion.moneda;
+                          const afectaSaldo = transaccion.estado === 'REAL' || estadoFilter === 'PLANIFICADA' || !estadoFilter;
+                          if (afectaSaldo) {
+                            if (transaccion.tipo === 'INGRESO') runningBalances[mon] += Number(transaccion.monto);
+                            else runningBalances[mon] -= Number(transaccion.monto);
                           }
+                          const currentBalance = runningBalances[mon];
                           return (
-                            <TableRow key={transaccion.id} className="hover:bg-slate-50 transition-colors">
+                            <TableRow key={transaccion.id} className="hover:bg-blue-50/30 transition-colors">
                               <TableCell className="py-2 border-b">
                                 <div className="flex flex-col leading-tight">
                                   <span className="font-semibold">{format(new Date(transaccion.fecha), 'dd/MM/yy')}</span>
@@ -556,59 +660,55 @@ export function ReporteTransacciones() {
                                 </div>
                               </TableCell>
                               <TableCell className="py-2 border-b">
-                                <div className="flex flex-col leading-tight max-w-[120px] sm:max-w-xs">
-                                  <span className="font-medium truncate">{transaccion.descripcion}</span>
-                                  <span className="text-[9px] text-muted-foreground truncate sm:hidden">
-                                    {transaccion.entidad.nombre}
-                                  </span>
-                                </div>
+                                <span className="font-medium truncate block max-w-[120px] sm:max-w-xs">{transaccion.descripcion}</span>
                               </TableCell>
                               <TableCell className="py-2 border-b hidden sm:table-cell">
-                                <div className="flex flex-col leading-tight">
-                                  <span className="font-medium">{transaccion.entidad.nombre}</span>
-                                </div>
+                                <span className="text-slate-600">{transaccion.entidad.nombre}</span>
                               </TableCell>
-                              <TableCell className="py-2 border-b hidden md:table-cell">
-                                <span className="font-mono text-[10px] bg-slate-100 px-1 rounded">{transaccion.asientoContable.codigo}</span>
-                              </TableCell>
-                              <TableCell className="text-right py-2 border-b font-mono font-bold tabular-nums">
+                              {agruparMayorPor === 'CUENTA' ? (
+                                <TableCell className="py-2 border-b hidden md:table-cell">
+                                  <span className="font-mono text-[10px] bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">{transaccion.asientoContable.codigo}</span>
+                                </TableCell>
+                              ) : (
+                                <TableCell className="py-2 border-b hidden md:table-cell">
+                                  <span className="text-slate-600">{transaccion.cuentaBancaria.nombre}</span>
+                                </TableCell>
+                              )}
+                              <TableCell className="hidden lg:table-cell border-b"></TableCell>
+                              <TableCell className="text-right py-2 border-b font-mono font-bold">
                                 <span className={transaccion.tipo === 'INGRESO' ? 'text-green-600' : 'text-red-600'}>
                                   {transaccion.tipo === 'INGRESO' ? '+' : '-'}{formatMonto(transaccion.monto, transaccion.moneda)}
                                 </span>
                               </TableCell>
-                              <TableCell className="text-right py-2 border-b font-mono font-bold tabular-nums bg-slate-50/50">
-                                <span className={runningBalance >= 0 ? 'text-blue-600' : 'text-orange-600'}>
-                                  {formatMonto(runningBalance, transaccion.moneda)}
+                              <TableCell className="text-right py-2 border-b font-mono font-bold bg-slate-50/30">
+                                <span className={currentBalance >= 0 ? 'text-blue-600' : 'text-orange-600'}>
+                                  {formatMonto(currentBalance, transaccion.moneda)}
                                 </span>
                               </TableCell>
-                              <TableCell className="text-center py-2 border-b">
-                                <Badge variant="secondary" className={`text-[9px] h-4 px-1 leading-none shadow-none font-normal ${transaccion.estado === 'PLANIFICADA' ? 'bg-amber-50 text-amber-700 border-amber-100' : 'bg-blue-50 text-blue-700 border-blue-100'}`}>
-                                  {transaccion.estado === 'PLANIFICADA' ? 'P' : 'R'}
-                                </Badge>
+                              <TableCell className="py-2 border-b text-center">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-slate-200">
+                                      <MoreVertical className="h-3 w-3" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="text-xs">
+                                    <DropdownMenuItem onClick={() => handleEdit(transaccion)} className="cursor-pointer gap-2">
+                                      <Edit2 className="h-3 w-3" /> Editar
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleDelete(transaccion)} className="cursor-pointer gap-2 text-red-600">
+                                      <Trash2 className="h-3 w-3" /> Eliminar
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
                               </TableCell>
                             </TableRow>
                           );
                         })}
-
-                        {/* Totales de la Cuenta */}
-                        <TableRow className="bg-slate-50 hover:bg-slate-50 font-bold border-t-2">
-                          <TableCell colSpan={4} className="py-2 text-right uppercase text-[9px] text-slate-500">Subtotales {group.info.nombre}:</TableCell>
-                          <TableCell className="text-right py-2 font-mono">
-                            <div className="flex flex-col items-end leading-none">
-                              <span className="text-green-600 text-[10px]">+{formatMonto(group.items.filter(i => i.tipo === 'INGRESO').reduce((sum, i) => sum + Number(i.monto), 0), group.items[0]?.moneda || 'ARS')}</span>
-                              <span className="text-red-600 text-[10px]">-{formatMonto(group.items.filter(i => i.tipo === 'EGRESO').reduce((sum, i) => sum + Number(i.monto), 0), group.items[0]?.moneda || 'ARS')}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right py-2 font-mono text-primary underline underline-offset-2">
-                            {formatMonto(runningBalance, group.items[0]?.moneda || 'ARS')}
-                          </TableCell>
-                          <TableCell className="border-b"></TableCell>
-                        </TableRow>
                       </React.Fragment>
                     );
                   })
                 ) : (
-                  // Renderizado Lista Normal
                   data.transacciones.map((transaccion) => (
                     <TableRow key={transaccion.id} className="hover:bg-slate-50 transition-colors">
                       <TableCell className="py-2 border-b">
@@ -618,37 +718,43 @@ export function ReporteTransacciones() {
                         </div>
                       </TableCell>
                       <TableCell className="py-2 border-b">
-                        <div className="flex flex-col leading-tight max-w-[120px] sm:max-w-xs">
-                          <span className="font-medium truncate">{transaccion.descripcion}</span>
-                          <span className="text-[9px] text-muted-foreground truncate sm:hidden">
-                            {transaccion.entidad.nombre}
-                          </span>
-                        </div>
+                        <span className="font-medium truncate">{transaccion.descripcion}</span>
                       </TableCell>
                       <TableCell className="py-2 border-b hidden sm:table-cell">
-                        <div className="flex flex-col leading-tight">
-                          <span className="font-medium">{transaccion.entidad.nombre}</span>
-                          <span className="text-[9px] text-muted-foreground capitalize">{transaccion.entidad.tipo.toLowerCase().replace('_', ' ')}</span>
-                        </div>
+                        <span className="font-medium">{transaccion.entidad.nombre}</span>
                       </TableCell>
                       <TableCell className="py-2 border-b hidden md:table-cell">
-                        <div className="flex flex-col leading-tight">
-                          <span>{transaccion.cuentaBancaria.nombre}</span>
-                          <span className="text-[9px] text-muted-foreground">{transaccion.cuentaBancaria.banco}</span>
-                        </div>
+                        <span>{transaccion.cuentaBancaria.nombre}</span>
                       </TableCell>
                       <TableCell className="py-2 border-b hidden lg:table-cell">
                         <span className="font-mono text-[10px] bg-slate-100 px-1 rounded">{transaccion.asientoContable.codigo}</span>
                       </TableCell>
-                      <TableCell className="text-right py-2 border-b font-mono font-bold tabular-nums">
+                      <TableCell className="text-right py-2 border-b font-mono font-bold">
                         <span className={transaccion.tipo === 'INGRESO' ? 'text-green-600' : 'text-red-600'}>
                           {formatMonto(transaccion.monto, transaccion.moneda)}
                         </span>
                       </TableCell>
                       <TableCell className="text-center py-2 border-b">
-                        <Badge variant="secondary" className={`text-[9px] h-4 px-1 leading-none shadow-none font-normal ${transaccion.estado === 'PLANIFICADA' ? 'bg-amber-50 text-amber-700 border-amber-100' : 'bg-blue-50 text-blue-700 border-blue-100'}`}>
+                        <Badge variant="secondary" className="text-[9px]">
                           {transaccion.estado === 'PLANIFICADA' ? 'Plan' : 'Real'}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="py-2 border-b text-center">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-slate-200">
+                              <MoreVertical className="h-3 w-3" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleEdit(transaccion)} className="cursor-pointer gap-2">
+                              <Edit2 className="h-3 w-3" /> Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDelete(transaccion)} className="cursor-pointer gap-2 text-red-600">
+                              <Trash2 className="h-3 w-3" /> Eliminar
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))
@@ -656,22 +762,12 @@ export function ReporteTransacciones() {
               </TableBody>
             </Table>
           </div>
-
-          {/* Paginación Compacta */}
           <div className="flex items-center justify-between mt-4 bg-slate-50 p-2 rounded-lg border">
-            <div className="text-[10px] text-muted-foreground uppercase font-bold">
-              Total: {data.pagination.total}
-            </div>
+            <div className="text-[10px] text-muted-foreground uppercase font-bold">Total: {data.pagination.total}</div>
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} disabled={currentPage === 1} className="h-7 text-[10px] px-2">
-                Anterior
-              </Button>
-              <span className="text-[10px] font-bold">
-                {currentPage} / {data.pagination.pages}
-              </span>
-              <Button variant="ghost" size="sm" onClick={() => setCurrentPage(prev => Math.min(data.pagination.pages, prev + 1))} disabled={currentPage === data.pagination.pages} className="h-7 text-[10px] px-2">
-                Siguiente
-              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="h-7 text-[10px]">Anterior</Button>
+              <span className="text-[10px] font-bold">{currentPage} / {data.pagination.pages}</span>
+              <Button variant="ghost" size="sm" onClick={() => setCurrentPage(p => Math.min(data.pagination.pages, p + 1))} disabled={currentPage === data.pagination.pages} className="h-7 text-[10px]">Siguiente</Button>
             </div>
           </div>
         </div>
@@ -681,6 +777,23 @@ export function ReporteTransacciones() {
           <p className="mt-2 text-xs text-muted-foreground">No se encontraron transacciones.</p>
           <Button onClick={clearFilters} className="mt-4 h-8 text-xs" variant="outline">Limpiar filtros</Button>
         </div>
+      )}
+
+      {selectedTransaccion && (
+        <>
+          <TransaccionForm
+            open={isEditOpen}
+            onClose={() => { setIsEditOpen(false); setSelectedTransaccion(null); }}
+            onSuccess={handleSuccess}
+            transaccion={selectedTransaccion}
+          />
+          <TransaccionDeleteDialog
+            open={isDeleteOpen}
+            onClose={() => { setIsDeleteOpen(false); setSelectedTransaccion(null); }}
+            onSuccess={handleSuccess}
+            transaccion={selectedTransaccion}
+          />
+        </>
       )}
     </div>
   );

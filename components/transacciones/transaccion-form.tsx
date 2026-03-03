@@ -49,6 +49,7 @@ interface SelectOption {
   activo?: boolean;
   banco?: string;
   codigo?: string;
+  entidadId?: string | null;
 }
 
 export function TransaccionForm({ open, onClose, onSuccess, transaccion }: TransaccionFormProps) {
@@ -77,6 +78,52 @@ export function TransaccionForm({ open, onClose, onSuccess, transaccion }: Trans
   });
 
   const estado = form.watch('estado');
+  const entidadId = form.watch('entidadId');
+
+  // Resetear el formulario cuando la transacción cambia (para edición)
+  useEffect(() => {
+    if (open) {
+      if (transaccion) {
+        form.reset({
+          descripcion: transaccion.descripcion || '',
+          monto: transaccion.monto?.toString() || '',
+          moneda: transaccion.moneda || 'ARS',
+          tipo: transaccion.tipo || 'INGRESO',
+          estado: transaccion.estado || 'REAL',
+          fecha: transaccion.fecha ? new Date(transaccion.fecha) : new Date(),
+          fechaPlanificada: transaccion.fechaPlanificada ? new Date(transaccion.fechaPlanificada) : undefined,
+          comentario: transaccion.comentario || '',
+          entidadId: transaccion.entidad?.id || '',
+          cuentaBancariaId: transaccion.cuentaBancaria?.id || '',
+          asientoContableId: transaccion.asientoContable?.id || '',
+        });
+      } else if (!isEditing) {
+        form.reset({
+          descripcion: '',
+          monto: '',
+          moneda: 'ARS',
+          tipo: 'INGRESO',
+          estado: 'REAL',
+          fecha: new Date(),
+          fechaPlanificada: undefined,
+          comentario: '',
+          entidadId: '',
+          cuentaBancariaId: '',
+          asientoContableId: '',
+        });
+      }
+    }
+  }, [transaccion, open, form, isEditing]);
+
+  // Auto-seleccionar asiento si la entidad tiene uno específico (solo en creación o si se cambia manualmente)
+  useEffect(() => {
+    if (entidadId && !isEditing) {
+      const relatedAsientos = asientos.filter(a => a.entidadId === entidadId);
+      if (relatedAsientos.length === 1) {
+        form.setValue('asientoContableId', relatedAsientos[0].id);
+      }
+    }
+  }, [entidadId, asientos, isEditing, form]);
 
   useEffect(() => {
     const fetchOptions = async () => {
@@ -487,11 +534,13 @@ export function TransaccionForm({ open, onClose, onSuccess, transaccion }: Trans
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {asientos.map((asiento) => (
-                        <SelectItem key={asiento.id} value={asiento.id} className="text-xs sm:text-sm">
-                          {asiento.codigo} - {asiento.nombre}
-                        </SelectItem>
-                      ))}
+                      {asientos
+                        .filter(asiento => !entidadId || !asiento.entidadId || asiento.entidadId === entidadId)
+                        .map((asiento) => (
+                          <SelectItem key={asiento.id} value={asiento.id} className="text-xs sm:text-sm">
+                            {asiento.codigo} - {asiento.nombre}
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                   <FormMessage className="text-[10px] sm:text-xs" />
