@@ -383,7 +383,7 @@ export function ReporteVencimientos() {
                 disabled={loadingCalendar}
               />
               <a
-                href={`https://www.google.com/calendar/render?authuser=${session?.user?.email ? encodeURIComponent(session.user.email) : '0'}&date=${format(currentMonth, 'yyyyMM01')}`}
+                href={`https://calendar.google.com/calendar/u/${session?.user?.email ? encodeURIComponent(session.user.email) : '0'}/r/month/${format(currentMonth, 'yyyy/MM/dd')}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-[10px] sm:text-xs font-medium flex items-center gap-1 hover:text-blue-600 transition-colors whitespace-nowrap"
@@ -831,6 +831,8 @@ export function ReporteVencimientos() {
                       ))}
 
                       {(() => {
+                        if (!verGoogleCalendar) return null;
+
                         // Recolectar todos los IDs de Google vinculados a transacciones de la App para deduplicar
                         const linkedGoogleIds = new Set<string>();
                         data?.grupos.forEach(g => {

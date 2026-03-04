@@ -209,7 +209,8 @@ export async function POST(request: NextRequest) {
                 monto: Number(transaccion.monto),
                 moneda: transaccion.moneda,
                 fechaPlanificada: transaccion.fechaPlanificada!,
-                tipo: transaccion.tipo as 'INGRESO' | 'EGRESO'
+                tipo: transaccion.tipo as 'INGRESO' | 'EGRESO',
+                entidadNombre: entidades.find(e => e.id === transaccion.entidadId)?.nombre
               });
 
               if (googleEventId) {
@@ -279,7 +280,8 @@ export async function POST(request: NextRequest) {
             monto: Number(transaccion.monto),
             moneda: transaccion.moneda,
             fechaPlanificada: transaccion.fechaPlanificada!,
-            tipo: transaccion.tipo as 'INGRESO' | 'EGRESO'
+            tipo: transaccion.tipo as 'INGRESO' | 'EGRESO',
+            entidadNombre: transaccion.entidad?.nombre
           });
 
           if (googleEventId) {

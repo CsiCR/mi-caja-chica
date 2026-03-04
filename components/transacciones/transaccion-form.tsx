@@ -116,6 +116,26 @@ export function TransaccionForm({ open, onClose, onSuccess, transaccion }: Trans
   }, [transaccion, open, form, isEditing]);
 
   // Auto-seleccionar asiento si la entidad tiene uno específico (solo en creación o si se cambia manualmente)
+  // Sincronizar fecha y fechaPlanificada si el estado es PLANIFICADA
+  useEffect(() => {
+    if (estado === 'PLANIFICADA') {
+      const subscription = form.watch((value, { name }) => {
+        if (name === 'fechaPlanificada' && value.fechaPlanificada) {
+          const currentFecha = form.getValues('fecha');
+          if (!currentFecha || currentFecha.getTime() !== (value.fechaPlanificada as Date).getTime()) {
+            form.setValue('fecha', value.fechaPlanificada as Date, { shouldValidate: true });
+          }
+        } else if (name === 'fecha' && value.fecha) {
+          const currentFechaPlanificada = form.getValues('fechaPlanificada');
+          if (!currentFechaPlanificada || currentFechaPlanificada.getTime() !== (value.fecha as Date).getTime()) {
+            form.setValue('fechaPlanificada', value.fecha as Date, { shouldValidate: true });
+          }
+        }
+      });
+      return () => subscription.unsubscribe();
+    }
+  }, [estado, form]);
+
   useEffect(() => {
     if (entidadId && !isEditing) {
       const relatedAsientos = asientos.filter(a => a.entidadId === entidadId);
@@ -571,7 +591,7 @@ export function TransaccionForm({ open, onClose, onSuccess, transaccion }: Trans
                             field.onChange(null);
                           }
                         }}
-                        max={format(new Date(), 'yyyy-MM-dd')}
+                        max={estado === 'REAL' ? format(new Date(), 'yyyy-MM-dd') : undefined}
                         className="w-full h-9 sm:h-10 text-xs sm:text-sm"
                       />
                     </FormControl>

@@ -15,7 +15,8 @@ import {
   CheckCircle2,
   Sparkles,
   Scale,
-  ShieldCheck
+  ShieldCheck,
+  Calendar
 } from 'lucide-react';
 import Link from 'next/link';
 import { APP_VERSION } from '@/lib/version-config';
@@ -150,6 +151,23 @@ export default async function InformacionPage() {
                     Genera reportes de <strong>Libro Mayor</strong> con agrupación profesional por Asiento o Cuenta.
                     Visualiza saldos iniciales históricos, movimientos del periodo y balances finales con un solo clic.
                     Exporta todo a CSV para tu contador.
+                  </p>
+                </div>
+              </div>
+
+              {/* Google Calendar */}
+              <div className="flex gap-4">
+                <div className="flex-shrink-0">
+                  <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                    <Calendar className="h-6 w-6 text-red-600" />
+                  </div>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg mb-2 text-gray-900">Agenda de Pagos</h3>
+                  <p className="text-gray-600 text-sm">
+                    Sincroniza tus pagos planificados con <strong>Google Calendar</strong>.
+                    Si inicias sesión con tu cuenta de Google, tus vencimientos aparecerán
+                    automáticamente en tu calendario para que nunca olvides un compromiso financiero.
                   </p>
                 </div>
               </div>

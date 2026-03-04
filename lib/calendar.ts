@@ -9,6 +9,7 @@ export async function createGoogleCalendarEvent(
         moneda: string;
         fechaPlanificada: Date;
         tipo: 'INGRESO' | 'EGRESO';
+        entidadNombre?: string;
     }
 ) {
     const auth = new google.auth.OAuth2();
@@ -16,24 +17,34 @@ export async function createGoogleCalendarEvent(
 
     const calendar = google.calendar({ version: 'v3', auth });
 
-    const summary = `${transaction.tipo === 'INGRESO' ? '💰 Cobro' : '💸 Pago'}: ${transaction.descripcion}`;
-    const description = `Monto: ${transaction.monto} ${transaction.moneda}\nRegistrado en Mi Caja Chica.`;
+    const summary = `${transaction.entidadNombre ? `[${transaction.entidadNombre}] ` : ''}${transaction.tipo === 'INGRESO' ? '💰 Cobro' : '💸 Pago'}: ${transaction.descripcion}`;
+    const description = `Monto: ${transaction.monto} ${transaction.moneda}\nEntidad: ${transaction.entidadNombre || 'N/A'}\nRegistrado en Mi Caja Chica.`;
 
-    const y = transaction.fechaPlanificada.getUTCFullYear();
-    const m = String(transaction.fechaPlanificada.getUTCMonth() + 1).padStart(2, '0');
-    const d = String(transaction.fechaPlanificada.getUTCDate()).padStart(2, '0');
-    const dateStr = `${y}-${m}-${d}`;
+    const y = transaction.fechaPlanificada.getFullYear();
+    const m = String(transaction.fechaPlanificada.getMonth() + 1).padStart(2, '0');
+    const d = String(transaction.fechaPlanificada.getDate()).padStart(2, '0');
+
+    // Crear strings ISO para las 9:00 AM y 10:00 AM en la zona horaria local
+    const startDateTime = `${y}-${m}-${d}T09:00:00`;
+    const endDateTime = `${y}-${m}-${d}T10:00:00`;
 
     const requestBody = {
         summary,
         description,
-        start: { date: dateStr },
-        end: { date: dateStr },
+        start: {
+            dateTime: startDateTime,
+            timeZone: 'America/Argentina/Buenos_Aires'
+        },
+        end: {
+            dateTime: endDateTime,
+            timeZone: 'America/Argentina/Buenos_Aires'
+        },
+        colorId: transaction.tipo === 'INGRESO' ? '10' : '11', // 10: Basil (Verde), 11: Tomato (Rojo)
         reminders: {
             useDefault: false,
             overrides: [
-                { method: 'popup', minutes: 60 * 9 },
-                { method: 'email', minutes: 24 * 60 },
+                { method: 'popup', minutes: 0 }, // A las 9:00 AM del mismo día
+                { method: 'email', minutes: 12 * 60 }, // 12 horas antes de las 9:00 AM (9:00 PM del día anterior)
             ],
         },
     };
@@ -61,6 +72,7 @@ export async function updateGoogleCalendarEvent(
         moneda: string;
         fechaPlanificada: Date;
         tipo: 'INGRESO' | 'EGRESO';
+        entidadNombre?: string;
     }
 ) {
     const auth = new google.auth.OAuth2();
@@ -68,19 +80,35 @@ export async function updateGoogleCalendarEvent(
 
     const calendar = google.calendar({ version: 'v3', auth });
 
-    const summary = `${transaction.tipo === 'INGRESO' ? '💰 Cobro' : '💸 Pago'}: ${transaction.descripcion}`;
-    const description = `Monto: ${transaction.monto} ${transaction.moneda}\nRegistrado en Mi Caja Chica.`;
+    const summary = `${transaction.entidadNombre ? `[${transaction.entidadNombre}] ` : ''}${transaction.tipo === 'INGRESO' ? '💰 Cobro' : '💸 Pago'}: ${transaction.descripcion}`;
+    const description = `Monto: ${transaction.monto} ${transaction.moneda}\nEntidad: ${transaction.entidadNombre || 'N/A'}\nRegistrado en Mi Caja Chica.`;
 
-    const y = transaction.fechaPlanificada.getUTCFullYear();
-    const m = String(transaction.fechaPlanificada.getUTCMonth() + 1).padStart(2, '0');
-    const d = String(transaction.fechaPlanificada.getUTCDate()).padStart(2, '0');
-    const dateStr = `${y}-${m}-${d}`;
+    const y = transaction.fechaPlanificada.getFullYear();
+    const m = String(transaction.fechaPlanificada.getMonth() + 1).padStart(2, '0');
+    const d = String(transaction.fechaPlanificada.getDate()).padStart(2, '0');
+
+    const startDateTime = `${y}-${m}-${d}T09:00:00`;
+    const endDateTime = `${y}-${m}-${d}T10:00:00`;
 
     const requestBody = {
         summary,
         description,
-        start: { date: dateStr },
-        end: { date: dateStr },
+        start: {
+            dateTime: startDateTime,
+            timeZone: 'America/Argentina/Buenos_Aires'
+        },
+        end: {
+            dateTime: endDateTime,
+            timeZone: 'America/Argentina/Buenos_Aires'
+        },
+        colorId: transaction.tipo === 'INGRESO' ? '10' : '11',
+        reminders: {
+            useDefault: false,
+            overrides: [
+                { method: 'popup', minutes: 0 },
+                { method: 'email', minutes: 12 * 60 },
+            ],
+        },
     };
 
 

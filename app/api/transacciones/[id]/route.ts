@@ -71,7 +71,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
             monto: Number(transaccion.monto),
             moneda: transaccion.moneda,
             fechaPlanificada: transaccion.fechaPlanificada!,
-            tipo: transaccion.tipo as 'INGRESO' | 'EGRESO'
+            tipo: transaccion.tipo as 'INGRESO' | 'EGRESO',
+            entidadNombre: transaccion.entidad?.nombre
           });
         } else {
           // Crear evento si ahora es planificada pero no tenía evento
@@ -80,7 +81,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
             monto: Number(transaccion.monto),
             moneda: transaccion.moneda,
             fechaPlanificada: transaccion.fechaPlanificada!,
-            tipo: transaccion.tipo as 'INGRESO' | 'EGRESO'
+            tipo: transaccion.tipo as 'INGRESO' | 'EGRESO',
+            entidadNombre: transaccion.entidad?.nombre
           });
           if (googleEventId) {
             await prisma.transaccion.update({

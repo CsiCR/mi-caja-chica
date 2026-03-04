@@ -208,12 +208,15 @@ export function DashboardStats() {
       {stats && (
         <div className="grid grid-cols-2 gap-2.5">
           {/* Saldo ARS */}
-          <Card className={cn(
-            "border-l-4 transition-all hover:bg-slate-50/50 active:scale-95 duration-200",
-            stats.saldoTotal.ARS >= 0
-              ? "border-l-green-500"
-              : "border-l-red-500"
-          )}>
+          <Card
+            className={cn(
+              "border-l-4 transition-all hover:bg-slate-50/50 active:scale-95 duration-200 cursor-pointer",
+              stats.saldoTotal.ARS >= 0
+                ? "border-l-green-500"
+                : "border-l-red-500"
+            )}
+            onClick={() => router.push('/dashboard/reportes')}
+          >
             <CardContent className="p-3">
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-1.5">
@@ -238,12 +241,15 @@ export function DashboardStats() {
           </Card>
 
           {/* Saldo USD */}
-          <Card className={cn(
-            "border-l-4 transition-all hover:bg-slate-50/50 active:scale-95 duration-200",
-            stats.saldoTotal.USD >= 0
-              ? "border-l-green-500"
-              : "border-l-red-500"
-          )}>
+          <Card
+            className={cn(
+              "border-l-4 transition-all hover:bg-slate-50/50 active:scale-95 duration-200 cursor-pointer",
+              stats.saldoTotal.USD >= 0
+                ? "border-l-green-500"
+                : "border-l-red-500"
+            )}
+            onClick={() => router.push('/dashboard/reportes')}
+          >
             <CardContent className="p-3">
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-1.5">
