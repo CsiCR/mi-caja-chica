@@ -383,7 +383,7 @@ export function ReporteVencimientos() {
                 disabled={loadingCalendar}
               />
               <a
-                href={`https://calendar.google.com/calendar/u/${session?.user?.email ? encodeURIComponent(session.user.email) : '0'}/r/month/${format(currentMonth, 'yyyy/MM/dd')}`}
+                href={`https://calendar.google.com/calendar/u/${session?.user?.email ? session.user.email : '0'}/r/month/${format(currentMonth, 'yyyy/MM/dd')}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-[10px] sm:text-xs font-medium flex items-center gap-1 hover:text-blue-600 transition-colors whitespace-nowrap"
