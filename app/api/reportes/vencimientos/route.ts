@@ -146,6 +146,10 @@ export async function GET(request: NextRequest) {
       totalesGenerales.USD.neto += grupo.totales.USD.neto;
     });
 
+    // Calcular conteos individuales para metadatos
+    const totalVencidas = transacciones.filter(t => t.fechaPlanificada && new Date(t.fechaPlanificada) < today).length;
+    const totalPendientes = transacciones.length - totalVencidas;
+
     return NextResponse.json({
       grupos: gruposArray,
       totalesGenerales,
@@ -161,7 +165,8 @@ export async function GET(request: NextRequest) {
       metadata: {
         totalPeriodos: gruposArray.length,
         periodosVencidos: gruposArray.filter(g => g.vencido).length,
-        transaccionesPendientes: transacciones.length,
+        transaccionesPendientes: totalPendientes,
+        transaccionesVencidas: totalVencidas,
       },
     });
   } catch (error) {

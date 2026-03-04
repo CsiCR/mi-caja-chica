@@ -16,6 +16,7 @@ interface DashboardStats {
   transacciones: number;
   asientos: number;
   transaccionesPendientes: number;
+  transaccionesVencidas: number;
   saldoTotal: {
     ARS: number;
     USD: number;
@@ -123,17 +124,28 @@ export function DashboardStats() {
       <div className="flex justify-between items-center bg-white p-3 rounded-lg border shadow-sm sticky top-0 z-20">
         <div className="flex items-center gap-3">
           <h2 className="text-xl font-bold text-gray-900 leading-tight">Resumen</h2>
-          {stats?.transaccionesPendientes && stats.transaccionesPendientes > 0 && (
+          {((stats?.transaccionesPendientes || 0) + (stats?.transaccionesVencidas || 0)) > 0 && (
             <div
               className="relative cursor-pointer transition-transform active:scale-95 hover:scale-105"
               onClick={() => router.push('/dashboard/reportes?tab=vencimientos&filter=vencidas')}
-              title={`${stats.transaccionesPendientes} transacciones pendientes o vencidas`}
+              title={`${stats?.transaccionesVencidas || 0} vencidas y ${stats?.transaccionesPendientes || 0} pendientes`}
             >
-              <div className="bg-orange-100 p-1.5 rounded-full border border-orange-200">
-                <Bell className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600 animate-swing" />
+              <div className={cn(
+                "p-1.5 rounded-full border",
+                (stats?.transaccionesVencidas || 0) > 0
+                  ? "bg-red-100 border-red-200"
+                  : "bg-orange-100 border-orange-200"
+              )}>
+                <Bell className={cn(
+                  "h-4 w-4 sm:h-5 sm:w-5",
+                  (stats?.transaccionesVencidas || 0) > 0 ? "text-red-600 animate-swing" : "text-orange-600 animate-swing"
+                )} />
               </div>
-              <Badge className="absolute -top-1 -right-1 h-3.5 w-3.5 p-0 flex items-center justify-center bg-red-500 text-[9px] border-white border rounded-full">
-                !
+              <Badge className={cn(
+                "absolute -top-1 -right-1 h-3.5 w-3.5 p-0 flex items-center justify-center text-[9px] border-white border rounded-full",
+                (stats?.transaccionesVencidas || 0) > 0 ? "bg-red-600" : "bg-orange-500"
+              )}>
+                {(stats?.transaccionesVencidas || 0) > 0 ? '!' : (stats?.transaccionesPendientes || 0)}
               </Badge>
             </div>
           )}

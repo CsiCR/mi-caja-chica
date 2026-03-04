@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
       cuentasCount,
       transaccionesCount,
       asientosCount,
+      transaccionesVencidas,
       transaccionesPendientes,
       saldos
     ] = await Promise.all([
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
           activa: true
         }
       }),
-      
+
       // Contar cuentas bancarias activas
       prisma.cuentaBancaria.count({
         where: {
@@ -39,14 +40,14 @@ export async function GET(request: NextRequest) {
           activa: true
         }
       }),
-      
+
       // Contar transacciones totales
       prisma.transaccion.count({
         where: {
           userId: session.user.id
         }
       }),
-      
+
       // Contar asientos contables activos
       prisma.asientoContable.count({
         where: {
@@ -54,15 +55,29 @@ export async function GET(request: NextRequest) {
           activo: true
         }
       }),
-      
-      // Contar transacciones planificadas (pendientes)
+
+      // Contar transacciones planificadas vencidas (fecha anterior a hoy)
       prisma.transaccion.count({
         where: {
           userId: session.user.id,
-          estado: 'PLANIFICADA'
+          estado: 'PLANIFICADA',
+          fechaPlanificada: {
+            lt: new Date()
+          }
         }
       }),
-      
+
+      // Contar transacciones planificadas pendientes (hoy o después)
+      prisma.transaccion.count({
+        where: {
+          userId: session.user.id,
+          estado: 'PLANIFICADA',
+          fechaPlanificada: {
+            gte: new Date()
+          }
+        }
+      }),
+
       // Calcular saldos por moneda - obtener todas las transacciones reales
       prisma.transaccion.findMany({
         where: {
@@ -86,7 +101,7 @@ export async function GET(request: NextRequest) {
     saldos.forEach((transaccion) => {
       const monto = Number(transaccion.monto || 0);
       const moneda = transaccion.moneda as 'ARS' | 'USD';
-      
+
       if (transaccion.tipo === 'INGRESO') {
         saldoTotal[moneda] += monto;
       } else if (transaccion.tipo === 'EGRESO') {
@@ -99,6 +114,7 @@ export async function GET(request: NextRequest) {
       cuentas: cuentasCount,
       transacciones: transaccionesCount,
       asientos: asientosCount,
+      transaccionesVencidas,
       transaccionesPendientes,
       saldoTotal
     };

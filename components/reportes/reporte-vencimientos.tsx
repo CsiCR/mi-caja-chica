@@ -82,9 +82,9 @@ interface VencimientosData {
     totalTransacciones: number;
   };
   metadata: {
-    totalPeriodos: number;
     periodosVencidos: number;
     transaccionesPendientes: number;
+    transaccionesVencidas: number;
   };
 }
 
@@ -452,7 +452,7 @@ export function ReporteVencimientos() {
                 </div>
                 <div>
                   <p className="text-[10px] text-muted-foreground font-medium leading-none">Pendientes</p>
-                  <p className="text-sm font-bold">{data.metadata.transaccionesPendientes}</p>
+                  <p className="text-sm font-bold text-orange-600">{data.metadata.transaccionesPendientes}</p>
                 </div>
               </div>
 
@@ -462,7 +462,7 @@ export function ReporteVencimientos() {
                 </div>
                 <div>
                   <p className="text-[10px] text-muted-foreground font-medium leading-none">Vencidos</p>
-                  <p className="text-sm font-bold text-red-600">{data.metadata.periodosVencidos}</p>
+                  <p className="text-sm font-bold text-red-600">{data.metadata.transaccionesVencidas}</p>
                 </div>
               </div>
 
