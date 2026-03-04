@@ -103,17 +103,18 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async jwt({ token, user, account }: any) {
-      // Inicio de sesión inicial
-      if (account && user) {
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          firstName: (user as any).firstName,
-          accessToken: account.access_token,
-          expiresAt: account.expires_at ? account.expires_at * 1000 : Date.now() + (account?.expires_in ?? 3600) * 1000,
-          refreshToken: account.refresh_token,
-        };
+      // Al iniciar sesión, el objeto user está disponible
+      if (user) {
+        token.id = user.id;
+        token.email = user.email;
+        token.name = user.name;
+        token.firstName = (user as any).firstName;
+      }
+
+      if (account) {
+        token.accessToken = account.access_token;
+        token.expiresAt = account.expires_at ? account.expires_at * 1000 : Date.now() + (account?.expires_in ?? 3600) * 1000;
+        token.refreshToken = account.refresh_token;
       }
 
       // Retornar el token actual si no ha expirado aún
