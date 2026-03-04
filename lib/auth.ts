@@ -107,6 +107,7 @@ export const authOptions: NextAuthOptions = {
       if (account && user) {
         return {
           id: user.id,
+          email: user.email,
           name: user.name,
           firstName: (user as any).firstName,
           accessToken: account.access_token,
@@ -126,6 +127,7 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }: any) {
       if (token && session?.user) {
         session.user.id = token.id;
+        session.user.email = token.email;
         session.user.name = token.name;
         session.user.firstName = token.firstName;
         session.accessToken = token.accessToken;
